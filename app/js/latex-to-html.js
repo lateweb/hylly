@@ -90,22 +90,49 @@
       return `<div class="abstract">${content.trim()}</div>`;
     });
 
-    let secNum = 0, subsecNum = 0, subsubsecNum = 0;
-    html = html.replace(/\\(section|subsection|subsubsection)(\*?)\{([^}]+)\}/g, (match, level, star, titleContent) => {
+    let chapNum = 0, secNum = 0, subsecNum = 0, subsubsecNum = 0;
+
+    html = html.replace(/\\(chapter|section|subsection|subsubsection)(\*?)\{([^}]+)\}/g, (match, level, star, titleContent) => {
       let numStr = "";
-      if (!star) {
-        if (level === 'section') {
-          secNum++; subsecNum = 0; subsubsecNum = 0;
-          numStr = `${secNum}. `;
-        } else if (level === 'subsection') {
-          subsecNum++; subsubsecNum = 0;
-          numStr = `${secNum}.${subsecNum}. `;
-        } else if (level === 'subsubsection') {
-          subsubsecNum++;
-          numStr = `${secNum}.${subsecNum}.${subsubsecNum}. `;
+      let tag;
+      if (level === 'chapter') {
+        if (!star) {
+          chapNum++;
+          secNum = 0; subsecNum = 0; subsubsecNum = 0;
+          numStr = `${chapNum}. `;
         }
+        tag = 'h2';
+      } else if (level === 'section') {
+        if (!star) {
+          secNum++; subsecNum = 0; subsubsecNum = 0;
+          if (chapNum > 0) {
+            numStr = `${chapNum}.${secNum}. `;
+          } else {
+            numStr = `${secNum}. `;
+          }
+        }
+        tag = 'h2';
+      } else if (level === 'subsection') {
+        if (!star) {
+          subsecNum++; subsubsecNum = 0;
+          if (chapNum > 0) {
+            numStr = `${chapNum}.${secNum}.${subsecNum}. `;
+          } else {
+            numStr = `${secNum}.${subsecNum}. `;
+          }
+        }
+        tag = 'h3';
+      } else if (level === 'subsubsection') {
+        if (!star) {
+          subsubsecNum++;
+          if (chapNum > 0) {
+            numStr = `${chapNum}.${secNum}.${subsecNum}.${subsubsecNum}. `;
+          } else {
+            numStr = `${secNum}.${subsecNum}.${subsubsecNum}. `;
+          }
+        }
+        tag = 'h4';
       }
-      const tag = level === 'section' ? 'h2' : (level === 'subsection' ? 'h3' : 'h4');
       return `<${tag}>${numStr}${titleContent}</${tag}>`;
     });
 
