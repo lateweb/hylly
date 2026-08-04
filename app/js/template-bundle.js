@@ -208,7 +208,7 @@
     /* app/css/layout.css */
     .top-nav {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       align-items: center;
       position: sticky;
       top: 0;
@@ -218,25 +218,6 @@
       border-bottom: 1px solid var(--border-color);
       margin: 0 auto 2rem auto;
       max-width: 750px;
-    }
-
-    .nav-left {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      margin-left: 46px;
-    }
-
-    @media (min-width: 750px) and (max-width: 841px) {
-      .nav-left {
-        margin-left: calc(46px - (100vw - 750px) / 2);
-      }
-    }
-
-    @media (min-width: 842px) {
-      .nav-left {
-        margin-left: 0;
-      }
     }
 
     .nav-right {
@@ -265,18 +246,6 @@
 
     .nav-toggle-btn:hover {
       background-color: var(--border-color);
-    }
-
-    .site-back-link {
-      font-size: 13px;
-      color: var(--text-muted);
-      text-decoration: none;
-      display: inline-block;
-    }
-
-    .site-back-link:hover {
-      color: var(--text-color);
-      text-decoration: underline;
     }
 
     .icon-btn {
@@ -788,9 +757,6 @@ ${ARTICLE_CSS}
 
   <div class="article-wrapper">
     <div class="top-nav article-nav">
-      <div class="nav-left">
-        <a href="javascript:history.back()" class="site-back-link">← Takaisin</a>
-      </div>
       <div class="nav-right">
         <button id="theme-toggle" class="icon-btn" aria-label="Vaihda teemaa">
           <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
