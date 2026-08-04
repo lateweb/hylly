@@ -177,7 +177,7 @@
       border-bottom: 2px solid var(--text-color);
     }
 
-    /* === VISA MATH STYLES, full import === */
+    /* === MATHJAX STYLES – no line breaking for inline math === */
     mjx-container {
       display: inline-block !important;
       white-space: nowrap !important;
@@ -189,13 +189,11 @@
       max-width: 100% !important;
     }
 
+    /* Inline math stays as normal, no forced wrapping */
     .math-inline mjx-container,
     .math-inline mjx-container mjx-math {
       display: inline !important;
       white-space: normal !important;
-      overflow-wrap: anywhere !important;
-      word-break: break-word !important;
-      line-height: inherit !important;
     }
 
     /* Scrollable display math */
@@ -217,7 +215,7 @@
       min-width: 100%;
     }
 
-    /* For inline math raw toggle (not used, but included for completeness) */
+    /* Raw TeX styles (for potential future use) */
     .tex-raw-inline {
       display: inline;
       white-space: pre-wrap;
