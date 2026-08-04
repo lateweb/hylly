@@ -4,11 +4,8 @@
 
   const texInput = document.getElementById('texInput');
   const bibInput = document.getElementById('bibInput');
-  const generateBtn = document.getElementById('generateBtn');
   const copyBtn = document.getElementById('copyBtn');
   const downloadBtn = document.getElementById('downloadBtn');
-
-  let lastGeneratedHtml = '';
 
   function showToast(message) {
     const existing = document.querySelector('.toast-notification');
@@ -24,19 +21,11 @@
     }, 3000);
   }
 
-  function updateButtonsState() {
-    const hasContent = texInput.value.trim().length > 0;
-    generateBtn.disabled = !hasContent;
-  }
-
-  texInput.addEventListener('input', updateButtonsState);
-  updateButtonsState();
-
-  generateBtn.addEventListener('click', () => {
+  function generateHtml() {
     const texSource = texInput.value;
     if (!texSource.trim()) {
       showToast('Please enter LaTeX source.');
-      return;
+      return null;
     }
 
     let bibEntries = [];
@@ -45,30 +34,25 @@
         bibEntries = window.parseBibtex(bibInput.value);
       } catch (e) {
         showToast('Failed to parse BibTeX. Check syntax.');
-        return;
+        return null;
       }
     }
 
     try {
       const articleHtml = window.latexToHTML(texSource, bibEntries);
-      const fullHtml = window.generateStandaloneHtml(articleHtml, bibEntries);
-      lastGeneratedHtml = fullHtml;
-      copyBtn.disabled = false;
-      downloadBtn.disabled = false;
-      showToast('HTML generated successfully.');
+      return window.generateStandaloneHtml(articleHtml, bibEntries);
     } catch (error) {
       console.error(error);
       showToast('Conversion error. Check your LaTeX syntax.');
+      return null;
     }
-  });
+  }
 
   copyBtn.addEventListener('click', async () => {
-    if (!lastGeneratedHtml) {
-      showToast('Generate HTML first.');
-      return;
-    }
+    const html = generateHtml();
+    if (!html) return;
     try {
-      await navigator.clipboard.writeText(lastGeneratedHtml);
+      await navigator.clipboard.writeText(html);
       const original = copyBtn.textContent;
       copyBtn.textContent = 'Copied!';
       setTimeout(() => { copyBtn.textContent = original; }, 2000);
@@ -78,11 +62,9 @@
   });
 
   downloadBtn.addEventListener('click', () => {
-    if (!lastGeneratedHtml) {
-      showToast('Generate HTML first.');
-      return;
-    }
-    const blob = new Blob([lastGeneratedHtml], { type: 'text/html' });
+    const html = generateHtml();
+    if (!html) return;
+    const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -91,5 +73,6 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    showToast('Download started.');
   });
 })();
