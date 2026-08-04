@@ -250,12 +250,12 @@
       return `<p>${trimmed}</p>`;
     }).join('\n');
 
-    // 10. Restore math
+    // 10. Restore math – use math-scroll for display
     html = html.replace(/___MATH_(\d+)___/g, (_, index) => {
       let math = mathStore[index];
       math = math.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       if (math.startsWith('$$')) {
-        return `<div class="math-display">${math}</div>`;
+        return `<div class="math-scroll">${math}</div>`;
       }
       return `<span class="math-inline">${math}</span>`;
     });
