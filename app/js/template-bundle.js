@@ -178,12 +178,23 @@
     }
 
     /* === VISA MATH STYLES, full import === */
+    /* Reset line-height for all MathJax containers to prevent spacing bugs */
+    .article-content mjx-container,
+    .article-content .math-inline mjx-container,
+    .article-content .math-scroll mjx-container,
+    .article-content .MathJax,
+    .article-content .mjx-chtml {
+      line-height: normal !important;
+      vertical-align: baseline !important;
+    }
+
+    /* Override previous inherit that caused spacing problems */
     mjx-container {
       display: inline-block !important;
       white-space: nowrap !important;
       margin: 0 !important;
       padding: 0 !important;
-      line-height: inherit !important;
+      line-height: normal !important;
       font-size: inherit !important;
       width: auto !important;
       max-width: 100% !important;
