@@ -125,16 +125,29 @@
   border-bottom: 2px solid var(--text-color);
 }
 
-/* === MATHJAX STYLES – Unifies display math and prevents clipping === */
+/* === MATHJAX STYLES – No vertical scrollbars ever === */
 .math-scroll {
   display: block;
   width: 100%;
   overflow-x: auto;
-  margin: 0.5em 0;
+  overflow-y: hidden !important; /* Force hide vertical scroll */
+  padding: 1em 0;                /* Give extra vertical space for tall equations */
+  margin: -0.5em 0;              /* Visually pull margins back to normal spacing */
   text-align: left;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   cursor: default;
+}
+
+.math-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.math-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.math-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
 }
 
 .math-scroll mjx-container {
@@ -145,6 +158,7 @@
   min-width: 0;
   max-width: none !important;
   white-space: nowrap !important;
+  overflow-y: visible !important;
 }
 
 mjx-container[display="true"] {
@@ -166,6 +180,7 @@ mjx-container[display="true"],
 .math-inline mjx-container mjx-math {
   display: inline !important;
   white-space: normal !important;
+  overflow-y: visible !important;
 }
 
 mjx-assistive-mml {
