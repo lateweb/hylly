@@ -29,11 +29,21 @@
     return clean.trim();
   }
 
+  function applyTypography(text) {
+    if (!text) return '';
+    return text.replace(/---/g, '—').replace(/--/g, '–').replace(/``/g, '“').replace(/''/g, '”');
+  }
+
   function latexToHTML(source, bibEntries) {
     let tempSrc = source.replace(/\\%/g, '___PCT___').replace(/%.*/g, '').replace(/___PCT___/g, '\\%');
     let title = cleanMetadata(extractTexMacro(tempSrc, 'title'));
     let author = cleanMetadata(extractTexMacro(tempSrc, 'author'));
     let date = cleanMetadata(extractTexMacro(tempSrc, 'date'));
+
+    // Apply en-dash, em-dash, and quotes typography before HTML escaping
+    title = applyTypography(title);
+    author = applyTypography(author);
+    date = applyTypography(date);
 
     title = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     author = author.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -73,10 +83,7 @@
     html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     // 5. Typography & quotes
-    html = html.replace(/---/g, '—');
-    html = html.replace(/--/g, '–');
-    html = html.replace(/``/g, '“');
-    html = html.replace(/''/g, '”');
+    html = applyTypography(html);
 
     // 6. Strip preamble
     const beginDoc = html.indexOf('\\begin{document}');
