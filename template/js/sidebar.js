@@ -22,10 +22,13 @@
       }
       const li = document.createElement('li');
       li.className = `toc-item toc-${header.tagName.toLowerCase()}`;
+      
       const a = document.createElement('a');
       a.href = '#' + header.id;
-      a.textContent = header.textContent;
+      // Using innerHTML copies any formatting and math tokens inside the title
+      a.innerHTML = header.innerHTML; 
       a.className = 'toc-link';
+      
       a.addEventListener('click', (e) => {
         e.preventDefault();
         const target = document.getElementById(header.id);
