@@ -41,16 +41,16 @@
 
     let html = source;
 
-    // 1. Protect math
+    // 1. Protect math (adding double newlines around block math avoids improper `<p>` wrapping later)
     const mathStore = [];
     html = html.replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, (_, formula) => {
       mathStore.push(`$$${formula.trim()}$$`);
-      return `___MATH_${mathStore.length - 1}___`;
+      return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
     });
     html = html.replace(/(\\\[([\s\S]*?)\\\])|(\$\$([\s\S]*?)\$\$)/g, (match, p1, p2, p3, p4) => {
       const formula = (p2 || p4 || '').trim();
       mathStore.push(`$$${formula}$$`);
-      return `___MATH_${mathStore.length - 1}___`;
+      return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
     });
     html = html.replace(/\$([^$]+)\$/g, (_, formula) => {
       mathStore.push(`$${formula.trim()}$`);
@@ -85,9 +85,9 @@
       html = html.substring(beginDoc + '\\begin{document}'.length, endDoc);
     }
 
-    // 7. LaTeX structures
+    // 7. LaTeX structures (adding \n\n around block elements to isolate them for paragraph processing)
     html = html.replace(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/g, (_, content) => {
-      return `<div class="abstract">${content.trim()}</div>`;
+      return `\n\n<div class="abstract">\n\n${content.trim()}\n\n</div>\n\n`;
     });
 
     let chapNum = 0, secNum = 0, subsecNum = 0, subsubsecNum = 0;
@@ -133,7 +133,7 @@
         }
         tag = 'h4';
       }
-      return `<${tag}>${numStr}${titleContent}</${tag}>`;
+      return `\n\n<${tag}>${numStr}${titleContent}</${tag}>\n\n`;
     });
 
     html = html.replace(/\\textbf\{([^}]+)\}/g, '<strong>$1</strong>');
@@ -146,16 +146,16 @@
 
     html = html.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (_, content) => {
       const items = content.replace(/\\item(?:\[[^\]]*\])?\s*/g, '</li><li>');
-      return `<ul><li>${items}</li></ul>`;
+      return `\n\n<ul><li>${items}</li></ul>\n\n`;
     });
     html = html.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (_, content) => {
       const items = content.replace(/\\item(?:\[[^\]]*\])?\s*/g, '</li><li>');
-      return `<ol><li>${items}</li></ol>`;
+      return `\n\n<ol><li>${items}</li></ol>\n\n`;
     });
     html = html.replace(/<li>\s*<\/li>/g, '');
     html = html.replace(/<(ul|ol)><li>/g, '<$1><li>');
 
-    html = html.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, '<blockquote>$1</blockquote>');
+    html = html.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, '\n\n<blockquote>$1</blockquote>\n\n');
 
     html = html.replace(/\\begin\{tabular\}\{([^}]*)\}([\s\S]*?)\\end\{tabular\}/g, (_, colSpec, content) => {
       const rows = content.trim().split('\\\\').filter(row => row.trim() !== '' && !row.includes('\\hline'));
@@ -167,11 +167,11 @@
         table += '</tr>';
       });
       table += '</table>';
-      return table;
+      return `\n\n${table}\n\n`;
     });
 
     html = html.replace(/\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}/g, '<img src="$1" alt="Kuva">');
-    html = html.replace(/\\begin\{figure\}(?:\[[^\]]*\])?([\s\S]*?)\\end\{figure\}/g, '<div class="figure">$1</div>');
+    html = html.replace(/\\begin\{figure\}(?:\[[^\]]*\])?([\s\S]*?)\\end\{figure\}/g, '\n\n<div class="figure">$1</div>\n\n');
     html = html.replace(/\\caption\{([^}]+)\}/g, '<div class="caption"><em>$1</em></div>');
     html = html.replace(/\\centering/g, '');
 
@@ -243,14 +243,15 @@
     html = paragraphs.map(para => {
       let trimmed = para.trim();
       if (!trimmed) return '';
-      if (/^<(h[1-6]|ul|ol|table|div|img|figure|pre|blockquote)/i.test(trimmed)) {
+      // Skip block elements OR math display blocks so they don't get wrapped in <p>
+      if (/^<\/?(h[1-6]|ul|ol|table|div|img|figure|pre|blockquote)/i.test(trimmed) || /^___MATH_/.test(trimmed)) {
         return trimmed;
       }
       trimmed = trimmed.replace(/\n/g, ' ');
       return `<p>${trimmed}</p>`;
     }).join('\n');
 
-    // 10. Restore math – use math-scroll for display
+    // 10. Restore math
     html = html.replace(/___MATH_(\d+)___/g, (_, index) => {
       let math = mathStore[index];
       math = math.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
