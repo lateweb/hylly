@@ -132,11 +132,29 @@
   overflow-x: auto;
   overflow-y: hidden !important; /* Force hide vertical scroll */
   padding: 1em 0;                /* Give extra vertical space for tall equations */
-  margin: -0.5em 0;              /* Visually pull margins back to normal spacing */
+  margin: 0;                     /* Reset margins */
   text-align: left;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   cursor: default;
+}
+
+/* 
+  Neutralize the double margin effect natively created by bottom margins 
+  from preceding elements abutting the math container's top padding.
+*/
+p + .math-scroll,
+ul + .math-scroll,
+ol + .math-scroll,
+blockquote + .math-scroll,
+pre + .math-scroll {
+  margin-top: -1.5rem;
+}
+
+h2 + .math-scroll,
+h3 + .math-scroll,
+h4 + .math-scroll {
+  margin-top: -1rem;
 }
 
 .math-scroll::-webkit-scrollbar {
