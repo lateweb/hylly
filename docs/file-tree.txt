@@ -1,13 +1,26 @@
+# docs/file-tree.txt
 tex-to-html/
 ├── index.html
-└── app/
+├── app/
+│   ├── css/
+│   │   ├── base.css
+│   │   ├── layout.css
+│   │   └── components.css
+│   └── js/
+│       ├── theme.js
+│       ├── bib-parser.js
+│       ├── latex-to-html.js
+│       ├── html-generator.js
+│       └── converter.js
+└── template/
     ├── css/
     │   ├── base.css
+    │   ├── article.css
     │   ├── layout.css
-    │   └── components.css
+    │   └── sidebar.css
     └── js/
         ├── theme.js
-        ├── bib-parser.js
-        ├── latex-to-html.js
-        ├── template-bundle.js
-        └── converter.js
+        ├── bib-parser-minimal.js
+        ├── math-utils.js
+        ├── sidebar.js
+        └── article-core.js
