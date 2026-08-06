@@ -44,7 +44,7 @@
 
       assetsPromise = Promise.all([Promise.all(cssPromises), Promise.all(jsPromises)])
         .then(([cssResults, jsResults]) => {
-          const cssContent = cssResults.join('\n/* --- END OF FILE --- */\n');
+          const cssContent = cssResults.join('\n/* --- END OF CSS MODULE --- */\n');
           const jsContent = jsResults.join('\n/* --- END OF SCRIPT MODULE --- */\n');
           return [cssContent, jsContent];
         })
@@ -64,84 +64,77 @@
       const bibEntriesJson = JSON.stringify(bibEntries);
       const titleMatch = articleHtml.match(/<h1 class="article-title">([^<]*)<\/h1>/);
       const pageTitle = titleMatch ? escapeHtml(titleMatch[1]) : 'Article';
-      
-      // Determine dark mode accurately based on the editor's active environment
+
+      // Accurately capture dark mode state from editor context
       const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark');
-      
-      // Build class for body (matches visa style exactly)
       const bodyClasses = ['has-hamburger'];
       if (isDark) bodyClasses.push('dark');
       const bodyClassAttr = bodyClasses.length > 0 ? ` class="${bodyClasses.join(' ')}"` : '';
 
-      assetsPromise = null; // Re-fetch assets cache so changes reflect instantly without a hard refresh
-
       return `<!DOCTYPE html>
 <html lang="fi">
 <head>
-<title>${pageTitle}</title>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="color-scheme" content="light dark" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>${pageTitle}</title>
 
-<script>
-(function () {
-  try {
-    var saved = localStorage.getItem('visa-theme');
-    var prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var dark = saved === 'dark' || (saved !== 'light' && prefers);
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('visa-theme');
+        var prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var dark = saved === 'dark' || (saved !== 'light' && prefers);
+        if (dark) {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
 
-    if (dark) {
-      document.documentElement.classList.add('dark');
-    }
-  } catch (e) {}
-})();
-</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- MathJax 4 Configuration -->
+  <script>
+    window.MathJax = {
+      loader: { load: ['input/tex', 'output/chtml', 'ui/menu'] },
+      tex: {
+        inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+        displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
+        processEscapes: true,
+        packages: {'[+]': ['noerrors', 'action']}
+      },
+      chtml: {
+        matchFontHeight: true,
+        scale: 1,
+        minScale: 0.5,
+        linebreaks: {
+          inline: true
+        }
+      },
+      startup: {
+        ready: () => {
+          MathJax.startup.defaultReady();
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
 
-<!-- MathJax 4 Configuration -->
-<script>
-window.MathJax = {
-  loader: { load: ['input/tex', 'output/chtml', 'ui/menu'] },
-  tex: {
-    inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
-    displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
-    processEscapes: true,
-    packages: {'[+]': ['noerrors', 'action']}
-  },
-  chtml: {
-    matchFontHeight: true,
-    scale: 1,
-    minScale: 0.5,
-    linebreaks: {
-      inline: true
-    }
-  },
-  startup: {
-    ready: () => {
-      MathJax.startup.defaultReady();
-    }
-  }
-};
-</script>
-
-<!-- MathJax 4 Library -->
-<script src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
-
-<style>
+  <style>
 ${cssContent}
-</style>
+  </style>
 </head>
 <body${bodyClassAttr}>
-<script>
-(function () {
-  if (document.body) {
-    document.body.classList.toggle('dark', document.documentElement.classList.contains('dark'));
-  }
-})();
-</script>
+  <script>
+    (function () {
+      if (document.body) {
+        document.body.classList.toggle('dark', document.documentElement.classList.contains('dark'));
+      }
+    })();
+  </script>
 
   <!-- TOC toggle -->
   <button id="toc-toggle-fixed" class="nav-toggle-btn" aria-label="Avaa/Sulje sisällysluettelo">
