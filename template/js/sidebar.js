@@ -25,7 +25,6 @@
       
       const a = document.createElement('a');
       a.href = '#' + header.id;
-      // Using innerHTML copies any formatting and math tokens inside the title
       a.innerHTML = header.innerHTML; 
       a.className = 'toc-link';
       
@@ -34,7 +33,7 @@
         const target = document.getElementById(header.id);
         if (target) {
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          document.getElementById('toc-sidebar').classList.remove('open');
+          // Sidebar stays open – removed the line that closed it
         }
       });
       li.appendChild(a);
