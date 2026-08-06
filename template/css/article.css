@@ -125,47 +125,27 @@
   border-bottom: 2px solid var(--text-color);
 }
 
-/* === MATHJAX STYLES – No vertical scrollbars ever === */
+/* === MATHJAX STYLES === */
 .math-scroll {
   display: block;
   width: 100%;
   overflow-x: auto;
-  overflow-y: hidden !important; /* Force hide vertical scroll */
-  padding: 1em 0;                /* Give extra vertical space for tall equations */
-  margin: 0;                     /* Reset margins */
-  text-align: left;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  overflow-y: hidden;
+  max-width: 100%;
+  margin: 0.5em 0;
+  white-space: nowrap !important;
   cursor: default;
+  -webkit-overflow-scrolling: touch;
+  text-align: left;
 }
 
-/* 
-  Neutralize the double margin effect natively created by bottom margins 
-  from preceding elements abutting the math container's top padding.
-*/
-p + .math-scroll,
-ul + .math-scroll,
-ol + .math-scroll,
-blockquote + .math-scroll,
-pre + .math-scroll {
-  margin-top: -1.5rem;
+.article-content p + .math-scroll {
+  margin-top: -0.5em;
 }
 
-h2 + .math-scroll,
-h3 + .math-scroll,
-h4 + .math-scroll {
-  margin-top: -1rem;
-}
-
-.math-scroll::-webkit-scrollbar {
-  height: 6px;
-}
-.math-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.math-scroll::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
+mjx-container[display="true"] {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
 }
 
 .math-scroll mjx-container {
@@ -173,15 +153,9 @@ h4 + .math-scroll {
   margin-left: 0 !important;
   margin-right: auto !important;
   display: inline-block !important;
-  min-width: 0;
+  min-width: 100%;
   max-width: none !important;
   white-space: nowrap !important;
-  overflow-y: visible !important;
-}
-
-mjx-container[display="true"] {
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
 }
 
 mjx-container[display="true"],
@@ -193,21 +167,15 @@ mjx-container[display="true"],
   min-width: 0;
 }
 
-/* Inline math */
-.math-inline mjx-container,
-.math-inline mjx-container mjx-math {
-  display: inline !important;
-  white-space: normal !important;
-  overflow-y: visible !important;
+mjx-linebreak {
+  display: inline-block !important;
+  width: 100% !important;
+  height: 0 !important;
+  visibility: visible !important;
 }
 
 mjx-assistive-mml {
   display: none !important;
-}
-
-mjx-container {
-  pointer-events: auto;
-  cursor: default;
 }
 
 /* Raw TeX styles for copying */
