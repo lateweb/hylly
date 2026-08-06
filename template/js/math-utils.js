@@ -2,6 +2,20 @@
 (function() {
   'use strict';
 
+  function texFromMathObj(math) {
+      if (!math) return null;
+      if (math.math) return math.math;
+      try {
+          const root = math.typesetRoot;
+          if (root) {
+              const ann = root.querySelector('annotation') || root.querySelector('script[type="math/tex"]');
+              if (ann) return ann.textContent || ann.innerText || null;
+              if (root.getAttribute('data-tex')) return root.getAttribute('data-tex');
+          }
+      } catch (e) {}
+      return null;
+  }
+
   function preventMathInteraction() {
     window.addEventListener('click', function(ev) {
       const target = ev.target;
@@ -17,66 +31,49 @@
   }
 
   function setupMathCopyHandler() {
-    document.addEventListener('copy', function(e) {
-      const selection = window.getSelection();
-      if (!selection.rangeCount) return;
-      const fragment = selection.getRangeAt(0).cloneContents();
-      const mathContainers = fragment.querySelectorAll ? fragment.querySelectorAll('[data-tex]') : [];
-      
-      // Clean up styles and scripts from copied selection
-      fragment.querySelectorAll('style, script, link[rel="stylesheet"]').forEach(el => el.remove());
-      
-      if (mathContainers.length > 0) {
-        mathContainers.forEach(container => {
-          const tex = container.getAttribute('data-tex');
-          if (tex) {
-            const isDisplay = container.getAttribute('data-display') === 'true' || 
-                              container.getAttribute('display') === 'true' || 
-                              container.classList.contains('math-scroll') || 
-                              (container.parentElement && container.parentElement.classList.contains('math-scroll'));
-            
-            // Output standardized LaTeX formatting
-            const formattedTex = isDisplay ? '\\[' + tex + '\\]' : '\\( ' + tex + '\\)';
-            container.parentNode.replaceChild(document.createTextNode(formattedTex), container);
-          }
-        });
-      }
-      const plainText = fragment.textContent || '';
-      if (plainText.trim()) {
-        e.clipboardData.setData('text/plain', plainText);
-        e.preventDefault();
-      }
+    document.addEventListener('copy', (e) => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        const fragment = selection.getRangeAt(0).cloneContents();
+        const mathContainers = fragment.querySelectorAll ? fragment.querySelectorAll('[data-tex]') : [];
+        fragment.querySelectorAll('style, script, link[rel="stylesheet"]').forEach(el => el.remove());
+        if (mathContainers.length > 0) {
+            mathContainers.forEach(container => {
+                const tex = container.getAttribute('data-tex');
+                if (tex) {
+                    const isDisplay = container.getAttribute('data-display') === 'true' || container.getAttribute('display') === 'true' || container.classList.contains('math-scroll') || (container.parentElement && container.parentElement.classList.contains('math-scroll'));
+                    const formattedTex = isDisplay ? `\\[${tex}\\]` : `\\(${tex}\\)`;
+                    container.parentNode.replaceChild(document.createTextNode(formattedTex), container);
+                }
+            });
+        }
+        const plainText = fragment.textContent || '';
+        if (plainText.trim()) {
+            e.clipboardData.setData('text/plain', plainText);
+            e.preventDefault();
+        }
     });
   }
 
   function annotateAllMathWithTex() {
-    try {
-      if (!window.MathJax?.startup?.document) return;
-      const doc = window.MathJax.startup.document;
-      for (const math of doc.math) {
-        const root = math.typesetRoot;
-        if (!root) continue;
-        const container = root.tagName.toLowerCase() === 'mjx-container' ? root : (root.closest('mjx-container') || root);
-        if (!container.hasAttribute('data-tex')) {
-          let tex = null;
-          if (math.math) {
-            tex = math.math;
-          } else {
-            try {
-              const ann = root.querySelector('annotation') || root.querySelector('script[type="math/tex"]');
-              if (ann) tex = ann.textContent || ann.innerText || null;
-              if (!tex && root.getAttribute('data-tex')) tex = root.getAttribute('data-tex');
-            } catch(e) {}
+      try {
+          if (!window.MathJax?.startup?.document) return;
+          const doc = window.MathJax.startup.document;
+          for (const math of doc.math) {
+              const root = math.typesetRoot;
+              if (!root) continue;
+              const container = root.tagName.toLowerCase() === 'mjx-container' ? root : (root.closest('mjx-container') || root);
+              if (!container.hasAttribute('data-tex')) {
+                  const tex = texFromMathObj(math);
+                  if (tex) {
+                      container.setAttribute('data-tex', tex);
+                      container.setAttribute('data-display', math.display ? 'true' : 'false');
+                  }
+              }
+              container.style.pointerEvents = 'auto'; 
+              container.style.cursor = 'default';
           }
-          if (tex) {
-            container.setAttribute('data-tex', tex);
-            container.setAttribute('data-display', math.display ? 'true' : 'false');
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("MathJax annotation error: ", e);
-    }
+      } catch (e) {}
   }
 
   document.addEventListener('DOMContentLoaded', function() {
