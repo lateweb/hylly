@@ -65,7 +65,6 @@
       const titleMatch = articleHtml.match(/<h1 class="article-title">([^<]*)<\/h1>/);
       const pageTitle = titleMatch ? escapeHtml(titleMatch[1]) : 'Article';
 
-      // Accurately capture dark mode state from editor context
       const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark');
       const bodyClasses = ['has-hamburger'];
       if (isDark) bodyClasses.push('dark');
