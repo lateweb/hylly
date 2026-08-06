@@ -54,16 +54,23 @@
     // 1. Protect math (adding double newlines around block math avoids improper `<p>` wrapping later)
     const mathStore = [];
     html = html.replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, (_, formula) => {
-      mathStore.push(`$$${formula.trim()}$$`);
+      mathStore.push({ isDisplay: true, content: `\\[${formula.trim()}\\]` });
       return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
     });
-    html = html.replace(/(\\\[([\s\S]*?)\\\])|(\$\$([\s\S]*?)\$\$)/g, (match, p1, p2, p3, p4) => {
-      const formula = (p2 || p4 || '').trim();
-      mathStore.push(`$$${formula}$$`);
+    html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, p1) => {
+      mathStore.push({ isDisplay: true, content: `\\[${p1.trim()}\\]` });
       return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
     });
-    html = html.replace(/\$([^$]+)\$/g, (_, formula) => {
-      mathStore.push(`$${formula.trim()}$`);
+    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, p1) => {
+      mathStore.push({ isDisplay: true, content: `\\[${p1.trim()}\\]` });
+      return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
+    });
+    html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match, p1) => {
+      mathStore.push({ isDisplay: false, content: `\\(${p1.trim()}\\)` });
+      return `___MATH_${mathStore.length - 1}___`;
+    });
+    html = html.replace(/\$([^\$\n]+?)\$/g, (match, p1) => {
+      mathStore.push({ isDisplay: false, content: `\\(${p1.trim()}\\)` });
       return `___MATH_${mathStore.length - 1}___`;
     });
 
@@ -260,12 +267,12 @@
 
     // 10. Restore math
     html = html.replace(/___MATH_(\d+)___/g, (_, index) => {
-      let math = mathStore[index];
-      math = math.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      if (math.startsWith('$$')) {
-        return `<div class="math-scroll">${math}</div>`;
+      let mathObj = mathStore[index];
+      let mathContent = mathObj.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      if (mathObj.isDisplay) {
+        return `<div class="math-scroll">${mathContent}</div>`;
       }
-      return `<span class="math-inline">${math}</span>`;
+      return `<span class="math-inline">${mathContent}</span>`;
     });
 
     // 11. Restore special characters
