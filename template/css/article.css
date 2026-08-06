@@ -23,7 +23,7 @@
 .article-date {
   font-size: 0.95rem;
   color: var(--text-muted);
-  font-style: italic;
+  font-style: normal;
 }
 
 .abstract {
@@ -93,10 +93,10 @@
 }
 
 .article-content blockquote {
-  margin: 1.5rem 0;
-  padding: 1rem 1.5rem;
-  border-left: 3px solid var(--text-color);
-  color: var(--text-muted);
+  margin: 1.5rem 0 1.5rem 1rem;
+  padding: 0 0 0 1rem;
+  border-left: 4px solid var(--text-color);
+  color: var(--text-color);
 }
 
 .article-block {
@@ -136,22 +136,43 @@
   border-bottom: 2px solid var(--text-color);
 }
 
-/* === DISPLAY MATH – evenly spaced, sized naturally === */
+/* === MATHJAX STYLES – No vertical scrollbars ever === */
 .math-scroll {
   display: block;
   width: 100%;
   overflow-x: auto;
+  overflow-y: hidden !important;
+  padding: 1em 0;
   margin: 0;
   text-align: left;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  cursor: default;
 }
 
-p + .math-scroll {
+p + .math-scroll,
+ul + .math-scroll,
+ol + .math-scroll,
+blockquote + .math-scroll,
+pre + .math-scroll {
+  margin-top: -1.5rem;
+}
+
+h2 + .math-scroll,
+h3 + .math-scroll,
+h4 + .math-scroll {
   margin-top: -1rem;
 }
 
-mjx-container[display="true"] {
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
+.math-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.math-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.math-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
 }
 
 .math-scroll mjx-container {
@@ -162,6 +183,12 @@ mjx-container[display="true"] {
   min-width: 0;
   max-width: none !important;
   white-space: nowrap !important;
+  overflow-y: visible !important;
+}
+
+mjx-container[display="true"] {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
 }
 
 mjx-container[display="true"],
@@ -173,7 +200,45 @@ mjx-container[display="true"],
   min-width: 0;
 }
 
-mjx-assistive-mml { display: none !important; }
+.math-inline mjx-container,
+.math-inline mjx-container mjx-math {
+  display: inline !important;
+  white-space: normal !important;
+  overflow-y: visible !important;
+}
+
+mjx-assistive-mml {
+  display: none !important;
+}
+
+mjx-container {
+  pointer-events: auto;
+  cursor: default;
+}
+
+.tex-raw-inline {
+  display: inline;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  font-family: 'Fira Code', monospace;
+  color: #d63384;
+  font-size: 1.05em;
+}
+
+.tex-raw-block {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  margin: 0.5em 0;
+  background: var(--bg-color);
+  padding: 0.5em;
+  border-radius: 4px;
+  font-family: 'Fira Code', monospace;
+  color: #d63384;
+  font-size: 1.05em;
+}
 
 @media (max-width: 480px) {
   .article-title {
