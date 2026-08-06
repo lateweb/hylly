@@ -40,39 +40,44 @@
     let author = cleanMetadata(extractTexMacro(tempSrc, 'author'));
     let date = cleanMetadata(extractTexMacro(tempSrc, 'date'));
 
-    // Apply en-dash, em-dash, and quotes typography before HTML escaping
-    title = applyTypography(title);
-    author = applyTypography(author);
-    date = applyTypography(date);
-
-    title = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    author = author.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    date = date.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    title = applyTypography(title).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    author = applyTypography(author).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    date = applyTypography(date).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     let html = source;
 
-    // 1. Protect math (adding double newlines around block math avoids improper `<p>` wrapping later)
-    // Using objects ensures we preserve the syntax properly through to the final insertion.
-    const mathStore = [];
-    html = html.replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, (_, formula) => {
-      mathStore.push({ isDisplay: true, content: `\\[${formula}\\]` });
-      return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
+    // 1. MASK MATH (Exactly like Visa, protecting elements from greedy command stripping)
+    const mathStash = [];
+    
+    html = html.replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, (match, p1) => {
+      const token = `@@MATH_${mathStash.length}@@`;
+      const safeMath = p1.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      mathStash.push({ token, content: `<div class="math-scroll">\\[${safeMath}\\]</div>` });
+      return `\n\n${token}\n\n`;
     });
     html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, p1) => {
-      mathStore.push({ isDisplay: true, content: `\\[${p1}\\]` });
-      return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
+      const token = `@@MATH_${mathStash.length}@@`;
+      const safeMath = p1.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      mathStash.push({ token, content: `<div class="math-scroll">\\[${safeMath}\\]</div>` });
+      return `\n\n${token}\n\n`;
     });
     html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, p1) => {
-      mathStore.push({ isDisplay: true, content: `\\[${p1}\\]` });
-      return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
+      const token = `@@MATH_${mathStash.length}@@`;
+      const safeMath = p1.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      mathStash.push({ token, content: `<div class="math-scroll">\\[${safeMath}\\]</div>` });
+      return `\n\n${token}\n\n`;
     });
     html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match, p1) => {
-      mathStore.push({ isDisplay: false, content: `\\(${p1}\\)` });
-      return `___MATH_${mathStore.length - 1}___`;
+      const token = `@@MATH_${mathStash.length}@@`;
+      const safeMath = p1.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      mathStash.push({ token, content: `<span class="math-inline">\\(${safeMath}\\)</span>` });
+      return token;
     });
     html = html.replace(/\$([^\$\n]+?)\$/g, (match, p1) => {
-      mathStore.push({ isDisplay: false, content: `\\(${p1}\\)` });
-      return `___MATH_${mathStore.length - 1}___`;
+      const token = `@@MATH_${mathStash.length}@@`;
+      const safeMath = p1.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      mathStash.push({ token, content: `<span class="math-inline">\\(${safeMath}\\)</span>` });
+      return token;
     });
 
     // 2. Protect special chars
@@ -90,7 +95,7 @@
     // 4. HTML escape
     html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-    // 5. Typography & quotes
+    // 5. Typography
     html = applyTypography(html);
 
     // 6. Strip preamble
@@ -100,52 +105,26 @@
       html = html.substring(beginDoc + '\\begin{document}'.length, endDoc);
     }
 
-    // 7. LaTeX structures (adding \n\n around block elements to isolate them for paragraph processing)
+    // 7. LaTeX structures
     html = html.replace(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/g, (_, content) => {
       return `\n\n<div class="abstract">\n\n${content.trim()}\n\n</div>\n\n`;
     });
 
     let chapNum = 0, secNum = 0, subsecNum = 0, subsubsecNum = 0;
-
     html = html.replace(/\\(chapter|section|subsection|subsubsection)(\*?)\{([^}]+)\}/g, (match, level, star, titleContent) => {
       let numStr = "";
       let tag;
       if (level === 'chapter') {
-        if (!star) {
-          chapNum++;
-          secNum = 0; subsecNum = 0; subsubsecNum = 0;
-          numStr = `${chapNum}. `;
-        }
+        if (!star) { chapNum++; secNum = 0; subsecNum = 0; subsubsecNum = 0; numStr = `${chapNum}. `; }
         tag = 'h2';
       } else if (level === 'section') {
-        if (!star) {
-          secNum++; subsecNum = 0; subsubsecNum = 0;
-          if (chapNum > 0) {
-            numStr = `${chapNum}.${secNum}. `;
-          } else {
-            numStr = `${secNum}. `;
-          }
-        }
+        if (!star) { secNum++; subsecNum = 0; subsubsecNum = 0; numStr = (chapNum > 0) ? `${chapNum}.${secNum}. ` : `${secNum}. `; }
         tag = 'h2';
       } else if (level === 'subsection') {
-        if (!star) {
-          subsecNum++; subsubsecNum = 0;
-          if (chapNum > 0) {
-            numStr = `${chapNum}.${secNum}.${subsecNum}. `;
-          } else {
-            numStr = `${secNum}.${subsecNum}. `;
-          }
-        }
+        if (!star) { subsecNum++; subsubsecNum = 0; numStr = (chapNum > 0) ? `${chapNum}.${secNum}.${subsecNum}. ` : `${secNum}.${subsecNum}. `; }
         tag = 'h3';
       } else if (level === 'subsubsection') {
-        if (!star) {
-          subsubsecNum++;
-          if (chapNum > 0) {
-            numStr = `${chapNum}.${secNum}.${subsecNum}.${subsubsecNum}. `;
-          } else {
-            numStr = `${secNum}.${subsecNum}.${subsubsecNum}. `;
-          }
-        }
+        if (!star) { subsubsecNum++; numStr = (chapNum > 0) ? `${chapNum}.${secNum}.${subsecNum}.${subsubsecNum}. ` : `${secNum}.${subsecNum}.${subsubsecNum}. `; }
         tag = 'h4';
       }
       return `\n\n<${tag}>${numStr}${titleContent}</${tag}>\n\n`;
@@ -190,16 +169,12 @@
     html = html.replace(/\\caption\{([^}]+)\}/g, '<div class="caption"><em>$1</em></div>');
     html = html.replace(/\\centering/g, '');
 
-    // ---------- CITATIONS ----------
+    // Cites
     function getLastName(authorStr) {
-      if (authorStr.includes(',')) {
-        return authorStr.split(',')[0].trim();
-      } else {
-        const parts = authorStr.trim().split(/\s+/);
-        return parts[parts.length - 1];
-      }
+      if (authorStr.includes(',')) return authorStr.split(',')[0].trim();
+      const parts = authorStr.trim().split(/\s+/);
+      return parts[parts.length - 1];
     }
-
     function getAuthorYear(key) {
       const entry = bibEntries.find(e => e.key === key);
       if (!entry) return { author: key, year: '' };
@@ -207,17 +182,12 @@
       let authors = authorField.split(/\s+(?:and|\\and)\s+/i).map(a => a.trim());
       let authorStr = key;
       if (authors.length > 0 && authors[0] !== '') {
-        if (authors.length === 1) {
-          authorStr = getLastName(authors[0]);
-        } else if (authors.length === 2) {
-          authorStr = getLastName(authors[0]) + ' & ' + getLastName(authors[1]);
-        } else {
-          authorStr = getLastName(authors[0]) + ' et al.';
-        }
+        if (authors.length === 1) { authorStr = getLastName(authors[0]); }
+        else if (authors.length === 2) { authorStr = getLastName(authors[0]) + ' & ' + getLastName(authors[1]); }
+        else { authorStr = getLastName(authors[0]) + ' et al.'; }
       }
       return { author: authorStr, year: entry.fields.year || '' };
     }
-
     function makeCite(keys, type) {
       const keyArray = keys.split(',').map(k => k.trim());
       if (type === 'paren') {
@@ -230,16 +200,12 @@
       } else if (type === 'text') {
         return keyArray.map(key => {
           const { author, year } = getAuthorYear(key);
-          if (year) {
-            return `${author} (<a href="#bib-${key}" class="cite-link" data-cite="${key}">${year}</a>)`;
-          } else {
-            return `<a href="#bib-${key}" class="cite-link" data-cite="${key}">${author}</a>`;
-          }
+          if (year) { return `${author} (<a href="#bib-${key}" class="cite-link" data-cite="${key}">${year}</a>)`; }
+          return `<a href="#bib-${key}" class="cite-link" data-cite="${key}">${author}</a>`;
         }).join(' ja ');
       }
       return `[${keys}]`;
     }
-
     html = html.replace(/\\(?:pcite|parencite)\{([^}]+)\}/g, (_, keys) => makeCite(keys, 'paren'));
     html = html.replace(/\\(?:tcite|textcite)\{([^}]+)\}/g, (_, keys) => makeCite(keys, 'text'));
     html = html.replace(/\\cite\{([^}]+)\}/g, (_, keys) => makeCite(keys, 'paren'));
@@ -251,7 +217,6 @@
       prevHtml = html;
       html = html.replace(/\\[a-zA-Z]+\*?(?:\s*\[[^\]]*\])*(?:\s*\{[^{}]*\})*/g, '');
     } while (html !== prevHtml);
-    // Crucial step: replace unmatched escape slashes BUT ignore protected structures that were cached (___MATH_X___)
     html = html.replace(/\\([^a-zA-Z0-9])/g, '$1');
 
     // 9. Paragraph wrapping
@@ -259,22 +224,16 @@
     html = paragraphs.map(para => {
       let trimmed = para.trim();
       if (!trimmed) return '';
-      // Skip block elements OR math display blocks so they don't get wrapped in <p>
-      if (/^<\/?(h[1-6]|ul|ol|table|div|img|figure|pre|blockquote)/i.test(trimmed) || /^___MATH_/.test(trimmed)) {
+      if (/^<\/?(h[1-6]|ul|ol|table|div|img|figure|pre|blockquote)/i.test(trimmed) || /^@@MATH_/.test(trimmed)) {
         return trimmed;
       }
       trimmed = trimmed.replace(/\n/g, ' ');
       return `<p>${trimmed}</p>`;
     }).join('\n');
 
-    // 10. Restore math
-    html = html.replace(/___MATH_(\d+)___/g, (_, index) => {
-      let mathObj = mathStore[index];
-      let mathContent = mathObj.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      if (mathObj.isDisplay) {
-        return `<div class="math-scroll">${mathContent}</div>`;
-      }
-      return `<span class="math-inline">${mathContent}</span>`;
+    // 10. UNMASK MATH (Exactly like Visa via token replacement ensuring no regex collision)
+    mathStash.forEach(m => {
+      html = html.split(m.token).join(m.content);
     });
 
     // 11. Restore special characters
