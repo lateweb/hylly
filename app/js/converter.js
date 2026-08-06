@@ -76,11 +76,28 @@
         downloadBtn.textContent = original;
         return;
       }
+
+      // Ask user for a filename
+      let filename = prompt('Enter a name for the HTML file:', 'article.html');
+      if (filename === null) {
+        // User cancelled
+        downloadBtn.textContent = original;
+        return;
+      }
+      let finalName = filename.trim();
+      if (!finalName) {
+        finalName = 'article.html';
+      }
+      // Ensure .html extension
+      if (!finalName.endsWith('.html') && !finalName.endsWith('.htm')) {
+        finalName += '.html';
+      }
+
       const blob = new Blob([html], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'article.html';
+      a.download = finalName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
