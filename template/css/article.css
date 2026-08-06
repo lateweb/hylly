@@ -39,7 +39,7 @@
 
 .article-content p {
   margin-bottom: 1.5rem;
-  padding-left: 2px; /* Extra padding to prevent glyphs with negative left bearing from cutting off */
+  padding-left: 2px;
 }
 
 .article-content h2 {
@@ -125,22 +125,17 @@
   border-bottom: 2px solid var(--text-color);
 }
 
-/* === MATHJAX STYLES === */
+/* === DISPLAY MATH – evenly spaced, sized naturally === */
 .math-scroll {
   display: block;
   width: 100%;
   overflow-x: auto;
-  overflow-y: hidden;
-  max-width: 100%;
-  margin: 0.5em 0;
-  white-space: nowrap !important;
-  cursor: default;
-  -webkit-overflow-scrolling: touch;
+  margin: 0;
   text-align: left;
 }
 
-.article-content p + .math-scroll {
-  margin-top: -0.5em;
+p + .math-scroll {
+  margin-top: -1rem;
 }
 
 mjx-container[display="true"] {
@@ -153,7 +148,7 @@ mjx-container[display="true"] {
   margin-left: 0 !important;
   margin-right: auto !important;
   display: inline-block !important;
-  min-width: 100%;
+  min-width: 0;
   max-width: none !important;
   white-space: nowrap !important;
 }
@@ -167,41 +162,7 @@ mjx-container[display="true"],
   min-width: 0;
 }
 
-mjx-linebreak {
-  display: inline-block !important;
-  width: 100% !important;
-  height: 0 !important;
-  visibility: visible !important;
-}
-
-mjx-assistive-mml {
-  display: none !important;
-}
-
-/* Raw TeX styles for copying */
-.tex-raw-inline {
-  display: inline;
-  white-space: pre-wrap;
-  word-break: break-word;
-  cursor: text;
-  font-family: 'Fira Code', monospace;
-  color: #d63384;
-  font-size: 1.05em;
-}
-
-.tex-raw-block {
-  display: block;
-  white-space: pre-wrap;
-  word-break: break-word;
-  cursor: text;
-  margin: 0.5em 0;
-  background: var(--bg-color);
-  padding: 0.5em;
-  border-radius: 4px;
-  font-family: 'Fira Code', monospace;
-  color: #d63384;
-  font-size: 1.05em;
-}
+mjx-assistive-mml { display: none !important; }
 
 @media (max-width: 480px) {
   .article-title {
