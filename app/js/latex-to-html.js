@@ -51,26 +51,26 @@
 
     let html = source;
 
-    // 1. Protect math (adding double newlines around block math avoids improper `<p>` wrapping later)
+    // 1. Protect math (no aggressive trimming, exactly as in visa parser)
     const mathStore = [];
     html = html.replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, (_, formula) => {
-      mathStore.push({ isDisplay: true, content: `\\[${formula.trim()}\\]` });
+      mathStore.push({ isDisplay: true, content: `\\[${formula}\\]` });
       return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
     });
     html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, p1) => {
-      mathStore.push({ isDisplay: true, content: `\\[${p1.trim()}\\]` });
+      mathStore.push({ isDisplay: true, content: `\\[${p1}\\]` });
       return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
     });
     html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, p1) => {
-      mathStore.push({ isDisplay: true, content: `\\[${p1.trim()}\\]` });
+      mathStore.push({ isDisplay: true, content: `\\[${p1}\\]` });
       return `\n\n___MATH_${mathStore.length - 1}___\n\n`;
     });
     html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match, p1) => {
-      mathStore.push({ isDisplay: false, content: `\\(${p1.trim()}\\)` });
+      mathStore.push({ isDisplay: false, content: `\\(${p1}\\)` });
       return `___MATH_${mathStore.length - 1}___`;
     });
     html = html.replace(/\$([^\$\n]+?)\$/g, (match, p1) => {
-      mathStore.push({ isDisplay: false, content: `\\(${p1.trim()}\\)` });
+      mathStore.push({ isDisplay: false, content: `\\(${p1}\\)` });
       return `___MATH_${mathStore.length - 1}___`;
     });
 
@@ -99,7 +99,7 @@
       html = html.substring(beginDoc + '\\begin{document}'.length, endDoc);
     }
 
-    // 7. LaTeX structures (adding \n\n around block elements to isolate them for paragraph processing)
+    // 7. LaTeX structures
     html = html.replace(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/g, (_, content) => {
       return `\n\n<div class="abstract">\n\n${content.trim()}\n\n</div>\n\n`;
     });
