@@ -44,7 +44,7 @@
 
       assetsPromise = Promise.all([Promise.all(cssPromises), Promise.all(jsPromises)])
         .then(([cssResults, jsResults]) => {
-          const cssContent = cssResults.join('\n/* --- END OF CSS MODULE --- */\n');
+          const cssContent = cssResults.join('\n/* --- END OF FILE --- */\n');
           const jsContent = jsResults.join('\n/* --- END OF SCRIPT MODULE --- */\n');
           return [cssContent, jsContent];
         })
@@ -64,61 +64,84 @@
       const bibEntriesJson = JSON.stringify(bibEntries);
       const titleMatch = articleHtml.match(/<h1 class="article-title">([^<]*)<\/h1>/);
       const pageTitle = titleMatch ? escapeHtml(titleMatch[1]) : 'Article';
+      
+      // Determine dark mode accurately based on the editor's active environment
+      const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark');
+      
+      // Build class for body (matches visa style exactly)
+      const bodyClasses = ['has-hamburger'];
+      if (isDark) bodyClasses.push('dark');
+      const bodyClassAttr = bodyClasses.length > 0 ? ` class="${bodyClasses.join(' ')}"` : '';
+
+      assetsPromise = null; // Re-fetch assets cache so changes reflect instantly without a hard refresh
 
       return `<!DOCTYPE html>
 <html lang="fi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light dark">
-  <title>${pageTitle}</title>
+<title>${pageTitle}</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light dark" />
 
-  <script>
-    (function() {
-      const saved = localStorage.getItem('visa-theme');
-      const prefers = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (saved === 'dark' || (!saved && prefers)) {
-        document.documentElement.classList.add('dark');
-      }
-    })();
-  </script>
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('visa-theme');
+    var prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var dark = saved === 'dark' || (saved !== 'light' && prefers);
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    if (dark) {
+      document.documentElement.classList.add('dark');
+    }
+  } catch (e) {}
+})();
+</script>
 
-  <!-- MathJax 4 Configuration (aligned with working visa project) -->
-  <script>
-    window.MathJax = {
-      loader: { load: ['input/tex', 'output/chtml', 'ui/menu'] },
-      tex: {
-        inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
-        displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
-        processEscapes: true,
-        packages: {'[+]': ['noerrors', 'action']}
-      },
-      chtml: {
-        matchFontHeight: true,
-        scale: 1,
-        minScale: 0.5,
-        linebreaks: {
-          inline: true
-        }
-      },
-      startup: {
-        ready: () => {
-          MathJax.startup.defaultReady();
-        }
-      }
-    };
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <style>
+<!-- MathJax 4 Configuration -->
+<script>
+window.MathJax = {
+  loader: { load: ['input/tex', 'output/chtml', 'ui/menu'] },
+  tex: {
+    inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+    displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
+    processEscapes: true,
+    packages: {'[+]': ['noerrors', 'action']}
+  },
+  chtml: {
+    matchFontHeight: true,
+    scale: 1,
+    minScale: 0.5,
+    linebreaks: {
+      inline: true
+    }
+  },
+  startup: {
+    ready: () => {
+      MathJax.startup.defaultReady();
+    }
+  }
+};
+</script>
+
+<!-- MathJax 4 Library -->
+<script src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
+
+<style>
 ${cssContent}
-  </style>
+</style>
 </head>
-<body class="has-hamburger">
+<body${bodyClassAttr}>
+<script>
+(function () {
+  if (document.body) {
+    document.body.classList.toggle('dark', document.documentElement.classList.contains('dark'));
+  }
+})();
+</script>
 
   <!-- TOC toggle -->
   <button id="toc-toggle-fixed" class="nav-toggle-btn" aria-label="Avaa/Sulje sisällysluettelo">
@@ -131,8 +154,8 @@ ${cssContent}
 
   <!-- Theme toggle -->
   <button id="theme-toggle" class="theme-toggle-fixed" aria-label="Vaihda teemaa">
-    <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-    <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="display: none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+    <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="display: ${isDark ? 'none' : 'inline'};"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="display: ${isDark ? 'inline' : 'none'};"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
   </button>
 
   <!-- Left sidebar (TOC) -->
