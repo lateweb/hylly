@@ -40,7 +40,7 @@
 /* Sidebars */
 .sidebar {
   position: fixed;
-  top: 0;
+  top: 60px;
   bottom: 0;
   width: 320px;
   max-width: 90vw;
@@ -55,7 +55,6 @@
   left: 0;
   border-right: 1px solid var(--border-color);
   transform: translateX(-100%);
-  padding-top: 4.5rem;
 }
 .left-sidebar.open {
   transform: translateX(0);
@@ -83,17 +82,11 @@
     width: 280px;
     padding: 1.5rem;
   }
-  .left-sidebar {
-    padding-top: 4rem;
-  }
 }
 
 @media (max-width: 480px) {
   .sidebar {
     width: 260px;
     padding: 1rem;
-  }
-  .left-sidebar {
-    padding-top: 3.5rem;
   }
 }
