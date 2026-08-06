@@ -51,43 +51,44 @@
     
     // Protect math environments (align, equation, gather, etc.)
     const mathEnvs = ['equation', 'equation\\*', 'align', 'align\\*', 'gather', 'gather\\*', 'eqnarray', 'eqnarray\\*', 'multline', 'multline\\*', 'split'];
-    const envRegex = new RegExp(`\\\\begin\\{(${mathEnvs.join('|')})\\}([\\s\\S]*?)\\\\end\\{\\1\\}`, 'g');
-    html = html.replace(envRegex, (match) => {
+    const envRegex = new RegExp(`(?<!\\\\)\\\\begin\\{(${mathEnvs.join('|')})\\}([\\s\\S]*?)(?<!\\\\)\\\\end\\{\\1\\}`, 'g');
+    html = html.replace(envRegex, (match, env, inner) => {
       const token = `@@MATH_D_${mathStash.length}@@`;
-      const safeMath = match.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      mathStash.push({ token, content: `<div class="math-scroll">${safeMath}</div>` });
+      const safeMath = inner.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      // Reconstruct exactly to prevent character drops
+      mathStash.push({ token, content: `<div class="math-scroll">\\begin{${env}}${safeMath}\\end{${env}}</div>` });
       return `\n\n${token}\n\n`;
     });
 
     // Display math \[ ... \]
-    html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+    html = html.replace(/(?<!\\)\\\[([\s\S]*?)(?<!\\)\\\]/g, (match, inner) => {
       const token = `@@MATH_D_${mathStash.length}@@`;
-      const safeMath = match.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      mathStash.push({ token, content: `<div class="math-scroll">${safeMath}</div>` });
+      const safeMath = inner.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      mathStash.push({ token, content: `<div class="math-scroll">\\[${safeMath}\\]</div>` });
       return `\n\n${token}\n\n`;
     });
 
     // Display math $$ ... $$
-    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+    html = html.replace(/(?<!\\)\$\$([\s\S]*?)(?<!\\)\$\$/g, (match, inner) => {
       const token = `@@MATH_D_${mathStash.length}@@`;
-      const safeMath = match.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      mathStash.push({ token, content: `<div class="math-scroll">${safeMath}</div>` });
+      const safeMath = inner.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      mathStash.push({ token, content: `<div class="math-scroll">$$${safeMath}$$</div>` });
       return `\n\n${token}\n\n`;
     });
 
     // Inline math \( ... \)
-    html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
+    html = html.replace(/(?<!\\)\\\(([\s\S]*?)(?<!\\)\\\)/g, (match, inner) => {
       const token = `@@MATH_I_${mathStash.length}@@`;
-      const safeMath = match.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      mathStash.push({ token, content: `<span class="math-inline">${safeMath}</span>` });
+      const safeMath = inner.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      mathStash.push({ token, content: `<span class="math-inline">\\(${safeMath}\\)</span>` });
       return token;
     });
 
     // Inline math $ ... $
-    html = html.replace(/\$([^\$\n]+?)\$/g, (match) => {
+    html = html.replace(/(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g, (match, inner) => {
       const token = `@@MATH_I_${mathStash.length}@@`;
-      const safeMath = match.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      mathStash.push({ token, content: `<span class="math-inline">${safeMath}</span>` });
+      const safeMath = inner.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      mathStash.push({ token, content: `<span class="math-inline">$${safeMath}$</span>` });
       return token;
     });
 
@@ -233,7 +234,6 @@
     html = html.replace(/\\cite\{([^}]+)\}/g, (_, keys) => makeCite(keys, 'paren'));
 
     // 8. Remove unknown commands
-    // THIS is the destructive line you encountered that shreds unmasked \commands and \environments.
     html = html.replace(/\\\\/g, '<br>');
     let prevHtml;
     do {
@@ -254,7 +254,7 @@
       return `<p>${trimmed}</p>`;
     }).join('\n');
 
-    // 10. UNMASK MATH (Exactly like Visa via token replacement ensuring no regex collision)
+    // 10. UNMASK MATH (Safely inserts manually rebuilt tags exactly)
     mathStash.forEach(m => {
       html = html.split(m.token).join(m.content);
     });
