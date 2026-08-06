@@ -51,7 +51,8 @@
 
     let html = source;
 
-    // 1. Protect math (no aggressive trimming, exactly as in visa parser)
+    // 1. Protect math (adding double newlines around block math avoids improper `<p>` wrapping later)
+    // Using objects ensures we preserve the syntax properly through to the final insertion.
     const mathStore = [];
     html = html.replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, (_, formula) => {
       mathStore.push({ isDisplay: true, content: `\\[${formula}\\]` });
@@ -99,7 +100,7 @@
       html = html.substring(beginDoc + '\\begin{document}'.length, endDoc);
     }
 
-    // 7. LaTeX structures
+    // 7. LaTeX structures (adding \n\n around block elements to isolate them for paragraph processing)
     html = html.replace(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/g, (_, content) => {
       return `\n\n<div class="abstract">\n\n${content.trim()}\n\n</div>\n\n`;
     });
@@ -250,6 +251,7 @@
       prevHtml = html;
       html = html.replace(/\\[a-zA-Z]+\*?(?:\s*\[[^\]]*\])*(?:\s*\{[^{}]*\})*/g, '');
     } while (html !== prevHtml);
+    // Crucial step: replace unmatched escape slashes BUT ignore protected structures that were cached (___MATH_X___)
     html = html.replace(/\\([^a-zA-Z0-9])/g, '$1');
 
     // 9. Paragraph wrapping
