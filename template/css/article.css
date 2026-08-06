@@ -99,6 +99,17 @@
   color: var(--text-muted);
 }
 
+.article-block {
+  margin: 1.5rem 0;
+  padding: 1.2rem 1.5rem;
+  border-left: 3px solid var(--text-color);
+  background: rgba(128, 128, 128, 0.05);
+}
+
+.article-block p:last-child {
+  margin-bottom: 0;
+}
+
 .article-content img {
   max-width: 100%;
   height: auto;
