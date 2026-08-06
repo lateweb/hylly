@@ -87,14 +87,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <!-- MathJax 4 Configuration -->
+  <!-- MathJax 4 Configuration (aligned with working visa project) -->
   <script>
     window.MathJax = {
       loader: { load: ['input/tex', 'output/chtml', 'ui/menu'] },
       tex: {
         inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
         displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
-        processEscapes: true
+        processEscapes: true,
+        packages: {'[+]': ['noerrors', 'action']}
       },
       chtml: {
         matchFontHeight: true,
@@ -105,7 +106,9 @@
         }
       },
       startup: {
-        typeset: false
+        ready: () => {
+          MathJax.startup.defaultReady();
+        }
       }
     };
   </script>
