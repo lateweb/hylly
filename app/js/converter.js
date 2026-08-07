@@ -45,14 +45,23 @@
       'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
   }
 
-  function extractTitle(texSource) {
-    // Attempt to extract title from \title{...} macro
-    const match = texSource.match(/\\title\s*\{([^}]+)\}/);
-    if (match) {
-      // Clean up common latex formatting in the title
-      return match[1].replace(/\\(?:textbf|textit|emph)\{([^}]+)\}/g, '$1').trim();
+  function extractMacro(src, macro) {
+    const regex = new RegExp('\\\\' + macro + '\\s*\\{');
+    const match = src.match(regex);
+    if (!match) return '';
+    let start = match.index + match[0].length;
+    let depth = 1, i = start;
+    while (i < src.length && depth > 0) {
+      if (src[i] === '\\') { i += 2; continue; }
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') depth--;
+      i++;
     }
-    return 'Untitled Document';
+    let clean = src.substring(start, i - 1).trim();
+    // Remove formatting inside the macro
+    clean = clean.replace(/\\[a-zA-Z]+\*?(?:\s*\[[^\]]*\])*(?:\s*\{[^{}]*\})*/g, '');
+    clean = clean.replace(/\\([^a-zA-Z0-9])/g, '$1');
+    return clean;
   }
 
   async function generateHtml() {
@@ -91,11 +100,16 @@
       const html = await generateHtml();
       if (!html) throw new Error('HTML generation failed');
 
-      const title = extractTitle(texInput.value);
+      let tempSrc = texInput.value.replace(/\\%/g, '___PCT___').replace(/%.*/g, '').replace(/___PCT___/g, '\\%');
+      const title = extractMacro(tempSrc, 'title') || 'Untitled Document';
+      const author = extractMacro(tempSrc, 'author');
+      const date = extractMacro(tempSrc, 'date');
       
       const book = {
         id: currentBookId || generateId(),
         title: title,
+        author: author,
+        date: date,
         texSource: texInput.value,
         bibSource: bibInput.value,
         htmlContent: html,
