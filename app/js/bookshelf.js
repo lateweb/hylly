@@ -15,13 +15,18 @@
   }
 
   function openBook(book) {
-    if (!book || !book.htmlContent) return;
+    if (!book || !book.htmlContent) {
+      alert('This entry has no content to display.');
+      return;
+    }
 
-    // Inject a script into the HTML to save/restore scroll position
     let html = book.htmlContent;
-    const scrollScript = `
+
+    // Inject a floating "Back to Shelf" button and scroll‑saving script
+    const injection = `
 <script>
 (function(){
+  // ---- Scroll memory ----
   const BOOK_ID = "${book.id}";
   const STORAGE_KEY = 'hylly-scroll-' + BOOK_ID;
   function saveScroll() {
@@ -35,16 +40,51 @@
       window.scrollTo(0, parseInt(saved, 10));
     });
   }
+
+  // ---- "Back to Shelf" button ----
+  const btn = document.createElement('div');
+  btn.innerHTML = '← Back to Shelf';
+  btn.style.cssText = \`
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    background: #000;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-family: sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: background 0.2s;
+  \`;
+  btn.onmouseover = () => btn.style.background = '#333';
+  btn.onmouseout = () => btn.style.background = '#000';
+  btn.onclick = function() {
+    // Go back to the main app (the shelf)
+    window.location.href = window.location.origin + window.location.pathname;
+  };
+  // Insert at the top of the body (or at the end if body not yet ready)
+  if (document.body) {
+    document.body.prepend(btn);
+  } else {
+    document.addEventListener('DOMContentLoaded', function() {
+      document.body.prepend(btn);
+    });
+  }
 })();
 <\/script>
 `;
+
     // Insert the script just before </body>
     const bodyEndIndex = html.lastIndexOf('</body>');
     if (bodyEndIndex !== -1) {
-      html = html.slice(0, bodyEndIndex) + scrollScript + html.slice(bodyEndIndex);
+      html = html.slice(0, bodyEndIndex) + injection + html.slice(bodyEndIndex);
     } else {
       // If no </body>, append at the end
-      html += scrollScript;
+      html += injection;
     }
 
     const blob = new Blob([html], { type: 'text/html' });
@@ -53,7 +93,6 @@
   }
 
   function showEditModal(book) {
-    // Remove any existing modal
     const existing = document.getElementById('editModal');
     if (existing) existing.remove();
 
@@ -102,30 +141,21 @@
     modal.appendChild(content);
     document.body.appendChild(modal);
 
-    // Cancel button
-    document.getElementById('editCancelBtn').addEventListener('click', () => {
-      modal.remove();
-    });
+    document.getElementById('editCancelBtn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 
-    // Click outside to close
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.remove();
-    });
-
-    // Save button
     document.getElementById('editSaveBtn').addEventListener('click', async () => {
       const newTitle = document.getElementById('editTitle').value.trim() || 'Untitled';
       const newAuthor = document.getElementById('editAuthor').value.trim();
       const newDate = document.getElementById('editDate').value.trim();
 
-      // Update book object
       book.title = newTitle;
       book.author = newAuthor;
       book.date = newDate;
 
       await window.HyllyStorage.saveBook(book);
       modal.remove();
-      loadBookshelf(); // refresh the list
+      loadBookshelf();
     });
   }
 
@@ -157,38 +187,30 @@
       `;
     }).join('');
 
-    // Wire up Read (title link)
     document.querySelectorAll('.read-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         const id = e.target.getAttribute('data-id');
         const book = await window.HyllyStorage.getBook(id);
-        if (book) {
-          openBook(book);
-        }
+        if (book) openBook(book);
       });
     });
 
-    // Wire up Edit buttons
     document.querySelectorAll('.edit-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const id = e.target.getAttribute('data-id');
         const book = await window.HyllyStorage.getBook(id);
-        if (book) {
-          showEditModal(book);
-        }
+        if (book) showEditModal(book);
       });
     });
 
-    // Wire up Delete buttons
     document.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         if (confirm('Are you sure you want to delete this entry?')) {
           const id = e.target.getAttribute('data-id');
           await window.HyllyStorage.deleteBook(id);
-          // Remove any saved scroll position for this entry
           localStorage.removeItem('hylly-scroll-' + id);
-          loadBookshelf(); 
+          loadBookshelf();
         }
       });
     });
@@ -197,7 +219,6 @@
   function filterBooks() {
     const searchInput = document.getElementById('searchInput');
     if (!searchInput) return;
-
     const query = searchInput.value.toLowerCase().trim();
     const filtered = ALL_BOOKS.filter(book => {
       const title = (book.title || '').toLowerCase();
@@ -205,14 +226,12 @@
       const date = (book.date || '').toLowerCase();
       return title.includes(query) || author.includes(query) || date.includes(query);
     });
-
     renderBooks(filtered);
   }
 
   async function loadBookshelf() {
     const shelf = document.getElementById('shelf');
     if (!shelf) return;
-
     try {
       ALL_BOOKS = await window.HyllyStorage.getBooks();
       ALL_BOOKS.sort((a, b) => b.timestamp - a.timestamp);
@@ -226,7 +245,6 @@
   function setupUpload() {
     const uploadInput = document.getElementById('uploadHtmlInput');
     const uploadBtn = document.getElementById('uploadHtmlBtn');
-    
     if (!uploadBtn || !uploadInput) return;
 
     uploadBtn.addEventListener('click', () => uploadInput.click());
@@ -234,7 +252,6 @@
     uploadInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
       try {
         const text = await file.text();
         const stripTags = str => str.replace(/<[^>]+>/g, '').trim();
@@ -269,16 +286,13 @@
         console.error(err);
         alert('Failed to read the file.');
       }
-      
       uploadInput.value = '';
     });
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-      searchInput.addEventListener('input', filterBooks);
-    }
+    if (searchInput) searchInput.addEventListener('input', filterBooks);
     setupUpload();
     loadBookshelf();
   });
