@@ -1,21 +1,44 @@
 // template/js/article-core.js
 document.addEventListener('DOMContentLoaded', function() {
-  // 1. Build TOC and Bibliography first, so they copy raw innerHTML 
-  // (which will include untypeset MathJax tokens like <span class="math-inline">).
+  // 1. Build TOC and Bibliography
   if (typeof window.buildTOC === 'function') window.buildTOC();
   if (typeof window.renderBibliography === 'function') {
     window.renderBibliography(typeof BIBLIOGRAPHY_ENTRIES !== 'undefined' ? BIBLIOGRAPHY_ENTRIES : []);
   }
 
-  // 2. Instruct MathJax to typeset the ENTIRE document.
-  // This allows the newly created sidebar elements to get perfectly rendered MathJax.
+  // 2. Typeset MathJax
   if (window.MathJax && window.MathJax.typesetPromise) {
     MathJax.typesetPromise().catch(function (err) {
       console.error("MathJax error:", err.message);
     });
   }
 
-  // 3. Bookmark feature with visual feedback
+  // 3. Highlight Code Syntax (Visa style)
+  if (typeof hljs !== 'undefined') {
+    try { hljs.highlightAll(); } catch(e) {}
+  }
+
+  // 4. Setup copy code buttons
+  function setupCodeCopy() {
+    document.querySelectorAll('.copy-code-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const codeEl = btn.closest('.code-box').querySelector('code');
+        if (codeEl) {
+          try {
+            await navigator.clipboard.writeText(codeEl.textContent);
+            const origHTML = btn.innerHTML;
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+            setTimeout(() => { btn.innerHTML = origHTML; }, 2000);
+          } catch (err) {
+            console.error('Failed to copy', err);
+          }
+        }
+      });
+    });
+  }
+  setupCodeCopy();
+
+  // 5. Bookmark feature with visual feedback
   (function() {
     const BOOKMARK_KEY = 'visa-bookmark';
 
@@ -24,7 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
       let current = null;
       for (const h of headings) {
         const rect = h.getBoundingClientRect();
-        if (rect.top <= 100) { // within top 100px of viewport
+        if (rect.top <= 100) { 
           current = h.id;
         } else if (rect.top > 100) {
           break;
@@ -119,18 +142,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
           }
         }
-        // update icon to filled
         updateBookmarkIcon(true);
       } catch (e) {
-        // ignore
       }
     }
 
     const bookmarkBtn = document.getElementById('bookmark-btn');
     if (bookmarkBtn) {
-      // Set initial icon state
       updateBookmarkIcon(hasExistingBookmark());
-
       bookmarkBtn.addEventListener('click', function() {
         const hasBookmark = hasExistingBookmark();
         if (hasBookmark) {
@@ -141,7 +160,6 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
-    // Restore bookmark after a short delay to let MathJax and layout settle
     setTimeout(restoreBookmark, 600);
   })();
 });
