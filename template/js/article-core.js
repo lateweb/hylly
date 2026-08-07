@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // 3. Bookmark feature
+  // 3. Bookmark feature with visual feedback
   (function() {
     const BOOKMARK_KEY = 'visa-bookmark';
 
@@ -63,12 +63,30 @@ document.addEventListener('DOMContentLoaded', function() {
       }, 2000);
     }
 
+    function updateBookmarkIcon(hasBookmark) {
+      const emptyIcon = document.getElementById('bookmark-empty');
+      const filledIcon = document.getElementById('bookmark-filled');
+      if (emptyIcon && filledIcon) {
+        emptyIcon.style.display = hasBookmark ? 'none' : 'inline';
+        filledIcon.style.display = hasBookmark ? 'inline' : 'none';
+      }
+    }
+
+    function hasExistingBookmark() {
+      try {
+        return localStorage.getItem(BOOKMARK_KEY) !== null;
+      } catch (e) {
+        return false;
+      }
+    }
+
     function saveBookmark() {
       const scrollY = window.scrollY;
       const sectionId = getCurrentSectionId();
       const bookmark = { scrollY, sectionId };
       try {
         localStorage.setItem(BOOKMARK_KEY, JSON.stringify(bookmark));
+        updateBookmarkIcon(true);
         showToast('Kirjanmerkki tallennettu!');
       } catch (e) {
         showToast('Kirjanmerkin tallennus epäonnistui.');
@@ -78,6 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function clearBookmark() {
       try {
         localStorage.removeItem(BOOKMARK_KEY);
+        updateBookmarkIcon(false);
         showToast('Kirjanmerkki poistettu.');
       } catch (e) {
         showToast('Kirjanmerkin poisto epäonnistui.');
@@ -100,6 +119,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
           }
         }
+        // update icon to filled
+        updateBookmarkIcon(true);
       } catch (e) {
         // ignore
       }
@@ -107,8 +128,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const bookmarkBtn = document.getElementById('bookmark-btn');
     if (bookmarkBtn) {
+      // Set initial icon state
+      updateBookmarkIcon(hasExistingBookmark());
+
       bookmarkBtn.addEventListener('click', function() {
-        const hasBookmark = localStorage.getItem(BOOKMARK_KEY);
+        const hasBookmark = hasExistingBookmark();
         if (hasBookmark) {
           clearBookmark();
         } else {
