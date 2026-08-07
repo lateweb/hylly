@@ -2,7 +2,6 @@
 (function(global) {
   'use strict';
 
-  // Reuse the same author parsing helpers as in the main app
   function parseAuthors(authorStr) {
     if (!authorStr) return [];
     const parts = authorStr.split(/\s+(?:and|\\and)\s+/i);
@@ -39,22 +38,22 @@
     author = formatAuthors(author);
 
     let formatted = '';
-    if (author) formatted += '<strong>' + author + '</strong>. ';
-    if (year) formatted += '(' + year + '). ';
-    if (title) formatted += '<em>' + title + '</em>. ';
-    if (journal) formatted += journal;
+    if (author) formatted += `${author} `;
+    if (year) formatted += `(${year}). `;
+    if (title) formatted += `${title}. `;
+    if (journal) formatted += `<em>${journal}</em>`;
     if (volume) {
-      formatted += ', ' + volume;
-      if (number) formatted += '(' + number + ')';
+      formatted += `, <em>${volume}</em>`;
+      if (number) formatted += `(${number})`;
     }
-    if (pages) formatted += ', ' + pages;
+    if (pages) formatted += `, ${pages}`;
 
     formatted = formatted.trim();
     if (!formatted.endsWith('.')) formatted += '.';
 
     if (doi) {
       doi = doi.replace(/\\url\{([^}]+)\}/g, '$1');
-      formatted += ' DOI: <a href="https://doi.org/' + doi + '" target="_blank" rel="noopener">' + doi + '</a>';
+      formatted += ` DOI: <a href="https://doi.org/${doi}" target="_blank" rel="noopener">${doi}</a>`;
     }
 
     formatted = formatted.replace(/---/g, '—').replace(/--/g, '–');
@@ -64,7 +63,6 @@
   }
 
   global.formatBibEntry = formatBibEntry;
-  // Expose helpers for consistency (though not used in template)
   global.parseAuthors = parseAuthors;
   global.formatAuthors = formatAuthors;
 })(window);
