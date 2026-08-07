@@ -19,29 +19,31 @@
   <link rel="stylesheet" href="app/css/bookshelf.css">
 </head>
 <body>
-  <nav class="navbar">
-    <a href="https://lateweb.github.io" class="back-link" style="font-size:13px; color:var(--text-muted); text-decoration:none; margin-right:16px;">&larr; Lateweb</a>
-    <div class="brand">
-      <h1>Bookshelf</h1>
+  <div class="top-nav">
+    <div class="nav-left">
+      <a href="https://lateweb.github.io" class="site-back-link">← Lateweb</a>
     </div>
-    <div class="nav-actions">
-      <a href="converter.html" class="btn btn-primary btn-sm">+ Add Book</a>
-      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+    <div class="nav-right">
+      <a href="converter.html" class="btn btn-primary btn-sm" style="text-decoration: none;">+ Add Book</a>
+      <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme">
         <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="display: none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       </button>
     </div>
-  </nav>
+  </div>
 
-  <div class="main-container">
-    <main class="bookshelf-wrapper">
-      <div class="bookshelf-inner">
-        <h2 class="library-title">My Library</h2>
-        <div id="books-grid" class="books-grid">
-          <!-- Books injected here via bookshelf.js -->
-        </div>
-      </div>
-    </main>
+  <div class="container">
+    <header class="library-header">
+      <h1>Bookshelf</h1>
+    </header>
+
+    <div class="search-container">
+      <input type="text" id="searchInput" placeholder="Search library..." aria-label="Search library">
+    </div>
+
+    <div id="shelf" class="shelf">
+      <!-- Books injected here via bookshelf.js -->
+    </div>
   </div>
 
   <script src="app/js/storage.js"></script>
