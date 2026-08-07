@@ -29,30 +29,19 @@
     return entries;
   }
 
-  /**
-   * Parse an author string into an array of author objects { last: string, first: string }
-   * Handles "and" and "\\and" separators.
-   */
   function parseAuthors(authorStr) {
     if (!authorStr) return [];
-    // Split on " and " or "\\and" (case insensitive)
     const parts = authorStr.split(/\s+(?:and|\\and)\s+/i);
     return parts.map(a => a.trim()).filter(a => a.length > 0).map(a => {
-      // Remove trailing commas and extra spaces
       let cleaned = a.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
       const tokens = cleaned.split(/\s+/);
       if (tokens.length === 0) return { last: '', first: '' };
-      // Last token is the surname
       const last = tokens.pop();
-      // Remaining tokens are given names – take initials
       const first = tokens.map(t => t.charAt(0).toUpperCase() + '.').join(' ');
       return { last, first };
     });
   }
 
-  /**
-   * Format a list of authors with surname first, e.g., "Zhou, Y., Zhang, T., ... & Liu, L."
-   */
   function formatAuthors(authorStr) {
     const authors = parseAuthors(authorStr);
     if (authors.length === 0) return '';
@@ -73,16 +62,15 @@
     let pages = f.pages || '';
     let doi = f.doi || '';
 
-    // Format authors with surname first
     author = formatAuthors(author);
 
     let formatted = '';
-    if (author) formatted += `<strong>${author}</strong>. `;
+    if (author) formatted += `${author} `;
     if (year) formatted += `(${year}). `;
-    if (title) formatted += `<em>${title}</em>. `;
-    if (journal) formatted += journal;
+    if (title) formatted += `${title}. `;
+    if (journal) formatted += `<em>${journal}</em>`;
     if (volume) {
-      formatted += `, ${volume}`;
+      formatted += `, <em>${volume}</em>`;
       if (number) formatted += `(${number})`;
     }
     if (pages) formatted += `, ${pages}`;
@@ -103,7 +91,6 @@
 
   global.parseBibtex = parseBibtex;
   global.formatBibEntry = formatBibEntry;
-  // Expose helpers for use in other modules
   global.parseAuthors = parseAuthors;
   global.formatAuthors = formatAuthors;
 })(window);
