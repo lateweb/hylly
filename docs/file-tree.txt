@@ -1,7 +1,6 @@
 # docs/file-tree.txt
 hylly/
 ├── index.html
-├── converter.html
 ├── app/
 │   ├── css/
 │   │   ├── base.css
@@ -10,21 +9,7 @@ hylly/
 │   │   └── bookshelf.css
 │   └── js/
 │       ├── theme.js
-│       ├── bib-parser.js
-│       ├── latex-to-html.js
-│       ├── html-generator.js
 │       ├── storage.js
-│       ├── bookshelf.js
-│       └── converter.js
-└── template/
-    ├── css/
-    │   ├── base.css
-    │   ├── article.css
-    │   ├── layout.css
-    │   └── sidebar.css
-    └── js/
-        ├── theme.js
-        ├── bib-parser-minimal.js
-        ├── math-utils.js
-        ├── sidebar.js
-        └── article-core.js
+│       └── bookshelf.js
+└── docs/
+    └── file-tree.txt
