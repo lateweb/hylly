@@ -8,18 +8,23 @@
   justify-content: space-between;
   border-bottom: 1px solid var(--border-color);
   z-index: 20;
+  position: relative;
 }
 
 .brand {
-  flex: 1;
-  text-align: center;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  /* Remove flex:1 and text-align:center; we use absolute centering */
 }
 
 .brand-title {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 600;
   color: var(--text);
   margin: 0;
+  white-space: nowrap;
 }
 
 .nav-actions {
