@@ -52,6 +52,83 @@
     window.open(url, '_blank');
   }
 
+  function showEditModal(book) {
+    // Remove any existing modal
+    const existing = document.getElementById('editModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'editModal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+      background: var(--surface);
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    `;
+    content.innerHTML = `
+      <h2 style="margin-bottom: 20px;">Edit Entry</h2>
+      <div style="margin-bottom: 15px;">
+        <label style="display:block; margin-bottom:5px; font-weight:500;">Title</label>
+        <input type="text" id="editTitle" value="${escapeHtml(book.title)}" style="width:100%; padding:8px; border:1px solid var(--border-color); background:var(--bg); color:var(--text); border-radius:4px;">
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label style="display:block; margin-bottom:5px; font-weight:500;">Author</label>
+        <input type="text" id="editAuthor" value="${escapeHtml(book.author || '')}" style="width:100%; padding:8px; border:1px solid var(--border-color); background:var(--bg); color:var(--text); border-radius:4px;">
+      </div>
+      <div style="margin-bottom: 20px;">
+        <label style="display:block; margin-bottom:5px; font-weight:500;">Date</label>
+        <input type="text" id="editDate" value="${escapeHtml(book.date || '')}" style="width:100%; padding:8px; border:1px solid var(--border-color); background:var(--bg); color:var(--text); border-radius:4px;">
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button id="editCancelBtn" class="btn btn-secondary" style="padding:8px 20px;">Cancel</button>
+        <button id="editSaveBtn" class="btn btn-primary" style="padding:8px 20px;">Save</button>
+      </div>
+    `;
+
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    // Cancel button
+    document.getElementById('editCancelBtn').addEventListener('click', () => {
+      modal.remove();
+    });
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+
+    // Save button
+    document.getElementById('editSaveBtn').addEventListener('click', async () => {
+      const newTitle = document.getElementById('editTitle').value.trim() || 'Untitled';
+      const newAuthor = document.getElementById('editAuthor').value.trim();
+      const newDate = document.getElementById('editDate').value.trim();
+
+      // Update book object
+      book.title = newTitle;
+      book.author = newAuthor;
+      book.date = newDate;
+
+      await window.HyllyStorage.saveBook(book);
+      modal.remove();
+      loadBookshelf(); // refresh the list
+    });
+  }
+
   function renderBooks(books) {
     const shelf = document.getElementById('shelf');
     if (!shelf) return;
@@ -73,14 +150,14 @@
           </div>
           ${authorHtml}
           <div class="entry-actions">
-            <button class="btn btn-secondary btn-sm read-btn" data-id="${book.id}">Read</button>
+            <button class="btn btn-secondary btn-sm edit-btn" data-id="${book.id}">Edit</button>
             <button class="btn btn-secondary btn-sm delete-btn" data-id="${book.id}" style="color: #ef4444; border-color: var(--border-color); background: transparent;">Delete</button>
           </div>
         </div>
       `;
     }).join('');
 
-    // Wire up Read buttons
+    // Wire up Read (title link)
     document.querySelectorAll('.read-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
@@ -88,6 +165,17 @@
         const book = await window.HyllyStorage.getBook(id);
         if (book) {
           openBook(book);
+        }
+      });
+    });
+
+    // Wire up Edit buttons
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.target.getAttribute('data-id');
+        const book = await window.HyllyStorage.getBook(id);
+        if (book) {
+          showEditModal(book);
         }
       });
     });
