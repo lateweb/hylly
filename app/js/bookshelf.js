@@ -22,11 +22,10 @@
 
     let html = book.htmlContent;
 
-    // Inject a floating "Back to Shelf" button and scroll‑saving script
-    const injection = `
+    // Inject scroll‑saving script (no back button)
+    const scrollScript = `
 <script>
 (function(){
-  // ---- Scroll memory ----
   const BOOK_ID = "${book.id}";
   const STORAGE_KEY = 'hylly-scroll-' + BOOK_ID;
   function saveScroll() {
@@ -40,40 +39,6 @@
       window.scrollTo(0, parseInt(saved, 10));
     });
   }
-
-  // ---- "Back to Shelf" button ----
-  const btn = document.createElement('div');
-  btn.innerHTML = '← Back to Shelf';
-  btn.style.cssText = \`
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    background: #000;
-    color: #fff;
-    padding: 10px 20px;
-    border-radius: 30px;
-    font-family: sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    z-index: 9999;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    transition: background 0.2s;
-  \`;
-  btn.onmouseover = () => btn.style.background = '#333';
-  btn.onmouseout = () => btn.style.background = '#000';
-  btn.onclick = function() {
-    // Go back to the main app (the shelf)
-    window.location.href = window.location.origin + window.location.pathname;
-  };
-  // Insert at the top of the body (or at the end if body not yet ready)
-  if (document.body) {
-    document.body.prepend(btn);
-  } else {
-    document.addEventListener('DOMContentLoaded', function() {
-      document.body.prepend(btn);
-    });
-  }
 })();
 <\/script>
 `;
@@ -81,10 +46,9 @@
     // Insert the script just before </body>
     const bodyEndIndex = html.lastIndexOf('</body>');
     if (bodyEndIndex !== -1) {
-      html = html.slice(0, bodyEndIndex) + injection + html.slice(bodyEndIndex);
+      html = html.slice(0, bodyEndIndex) + scrollScript + html.slice(bodyEndIndex);
     } else {
-      // If no </body>, append at the end
-      html += injection;
+      html += scrollScript;
     }
 
     const blob = new Blob([html], { type: 'text/html' });
