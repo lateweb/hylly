@@ -2,7 +2,6 @@
 (function() {
   'use strict';
 
-  const LAST_READ_KEY = 'hylly-last-read-id';
   let ALL_BOOKS = [];
 
   function escapeHtml(text) {
@@ -16,13 +15,41 @@
   }
 
   function openBook(book) {
-    if (book && book.htmlContent) {
-      const blob = new Blob([book.htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      // Store this as the last opened entry
-      localStorage.setItem(LAST_READ_KEY, book.id);
+    if (!book || !book.htmlContent) return;
+
+    // Inject a script into the HTML to save/restore scroll position
+    let html = book.htmlContent;
+    const scrollScript = `
+<script>
+(function(){
+  const BOOK_ID = "${book.id}";
+  const STORAGE_KEY = 'hylly-scroll-' + BOOK_ID;
+  function saveScroll() {
+    localStorage.setItem(STORAGE_KEY, window.scrollY);
+  }
+  window.addEventListener('scroll', saveScroll);
+  window.addEventListener('beforeunload', saveScroll);
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved !== null) {
+    window.addEventListener('load', function() {
+      window.scrollTo(0, parseInt(saved, 10));
+    });
+  }
+})();
+<\/script>
+`;
+    // Insert the script just before </body>
+    const bodyEndIndex = html.lastIndexOf('</body>');
+    if (bodyEndIndex !== -1) {
+      html = html.slice(0, bodyEndIndex) + scrollScript + html.slice(bodyEndIndex);
+    } else {
+      // If no </body>, append at the end
+      html += scrollScript;
     }
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
   }
 
   function renderBooks(books) {
@@ -71,11 +98,8 @@
         if (confirm('Are you sure you want to delete this entry?')) {
           const id = e.target.getAttribute('data-id');
           await window.HyllyStorage.deleteBook(id);
-          // If we just deleted the last-read entry, clear the stored ID
-          const lastRead = localStorage.getItem(LAST_READ_KEY);
-          if (lastRead === id) {
-            localStorage.removeItem(LAST_READ_KEY);
-          }
+          // Remove any saved scroll position for this entry
+          localStorage.removeItem('hylly-scroll-' + id);
           loadBookshelf(); 
         }
       });
@@ -97,32 +121,14 @@
     renderBooks(filtered);
   }
 
-  function autoOpenLastRead() {
-    const lastReadId = localStorage.getItem(LAST_READ_KEY);
-    if (!lastReadId) return;
-
-    // Find the book in the already loaded list
-    const book = ALL_BOOKS.find(b => b.id === lastReadId);
-    if (book) {
-      // Open it after a tiny delay to ensure the page is fully rendered
-      setTimeout(() => openBook(book), 300);
-    } else {
-      // The book might have been deleted, clear the stored ID
-      localStorage.removeItem(LAST_READ_KEY);
-    }
-  }
-
   async function loadBookshelf() {
     const shelf = document.getElementById('shelf');
     if (!shelf) return;
 
     try {
       ALL_BOOKS = await window.HyllyStorage.getBooks();
-      // Sort by newest first
       ALL_BOOKS.sort((a, b) => b.timestamp - a.timestamp);
       renderBooks(ALL_BOOKS);
-      // After rendering, try to auto-open the last read entry
-      autoOpenLastRead();
     } catch (error) {
       console.error("Error loading bookshelf:", error);
       shelf.innerHTML = '<div class="empty-shelf">Error loading library.</div>';
@@ -145,7 +151,6 @@
         const text = await file.text();
         const stripTags = str => str.replace(/<[^>]+>/g, '').trim();
 
-        // Extract metadata directly from the HTML payload
         const titleMatch = text.match(/<h1 class="article-title">([\s\S]*?)<\/h1>/i);
         const authorMatch = text.match(/<div class="article-author">([\s\S]*?)<\/div>/i);
         const dateMatch = text.match(/<div class="article-date">([\s\S]*?)<\/div>/i);
@@ -177,7 +182,6 @@
         alert('Failed to read the file.');
       }
       
-      // Reset input to allow selecting the same file again
       uploadInput.value = '';
     });
   }
