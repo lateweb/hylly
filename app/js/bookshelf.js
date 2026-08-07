@@ -19,12 +19,13 @@
     if (!shelf) return;
 
     if (books.length === 0) {
-      shelf.innerHTML = '<div class="empty-shelf">Your shelf is empty. Click "+ Add Book" to write or paste a document.</div>';
+      shelf.innerHTML = '<div class="empty-shelf">Your shelf is empty. Click "+ Add Book" or "Upload HTML" to get started.</div>';
       return;
     }
 
     shelf.innerHTML = books.map(book => {
-      const dateStr = book.date || new Date(book.timestamp).toLocaleDateString();
+      // Exactly fetch the date string as it reads in the HTML, no fallbacks
+      const dateStr = book.date || '';
       const authorHtml = book.author ? `<div class="entry-author"><strong>${escapeHtml(book.author)}</strong></div>` : '';
       
       return `
@@ -107,11 +108,66 @@
     }
   }
 
+  // --- Upload Previously Downloaded HTML feature ---
+  function setupUpload() {
+    const uploadInput = document.getElementById('uploadHtmlInput');
+    const uploadBtn = document.getElementById('uploadHtmlBtn');
+    
+    if (!uploadBtn || !uploadInput) return;
+
+    uploadBtn.addEventListener('click', () => uploadInput.click());
+
+    uploadInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const stripTags = str => str.replace(/<[^>]+>/g, '').trim();
+
+        // Extract metadata directly from the HTML payload
+        const titleMatch = text.match(/<h1 class="article-title">([\s\S]*?)<\/h1>/i);
+        const authorMatch = text.match(/<div class="article-author">([\s\S]*?)<\/div>/i);
+        const dateMatch = text.match(/<div class="article-date">([\s\S]*?)<\/div>/i);
+
+        let title = titleMatch ? stripTags(titleMatch[1]) : '';
+        if (!title) {
+          const headTitleMatch = text.match(/<title>([\s\S]*?)<\/title>/i);
+          title = headTitleMatch ? stripTags(headTitleMatch[1]) : 'Uploaded Document';
+        }
+
+        const author = authorMatch ? stripTags(authorMatch[1]) : '';
+        const date = dateMatch ? stripTags(dateMatch[1]) : '';
+
+        const book = {
+          id: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : 'id-' + Date.now(),
+          title: title,
+          author: author,
+          date: date,
+          texSource: '', // Blank because it's uploaded directly
+          bibSource: '',
+          htmlContent: text,
+          timestamp: Date.now()
+        };
+
+        await window.HyllyStorage.saveBook(book);
+        loadBookshelf();
+      } catch (err) {
+        console.error(err);
+        alert('Failed to read the file.');
+      }
+      
+      // Reset input to allow selecting the same file again
+      uploadInput.value = '';
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
       searchInput.addEventListener('input', filterBooks);
     }
+    setupUpload();
     loadBookshelf();
   });
 })();
