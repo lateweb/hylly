@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
-  <title>TeXtoHTML Converter</title>
+  <title>Bookshelf | Library</title>
 
   <script src="app/js/theme.js"></script>
 
@@ -16,14 +16,16 @@
   <link rel="stylesheet" href="app/css/base.css">
   <link rel="stylesheet" href="app/css/layout.css">
   <link rel="stylesheet" href="app/css/components.css">
+  <link rel="stylesheet" href="app/css/bookshelf.css">
 </head>
 <body>
   <nav class="navbar">
     <a href="https://lateweb.github.io" class="back-link" style="font-size:13px; color:var(--text-muted); text-decoration:none; margin-right:16px;">&larr; Lateweb</a>
     <div class="brand">
-      <h1>TeXtoHTML</h1>
+      <h1>Bookshelf</h1>
     </div>
     <div class="nav-actions">
+      <a href="converter.html" class="btn btn-primary btn-sm">+ Add Book</a>
       <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
         <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="display: none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
@@ -32,24 +34,17 @@
   </nav>
 
   <div class="main-container">
-    <main class="content-area">
-      <div class="toolbar top-toolbar">
-        <div class="primary-actions">
-          <button id="copyBtn" class="btn btn-secondary">Copy HTML</button>
-          <button id="downloadBtn" class="btn btn-primary">Download .html</button>
+    <main class="bookshelf-wrapper">
+      <div class="bookshelf-inner">
+        <h2 class="library-title">My Library</h2>
+        <div id="books-grid" class="books-grid">
+          <!-- Books injected here via bookshelf.js -->
         </div>
-      </div>
-
-      <div class="editor-wrapper">
-        <textarea id="texInput" placeholder="Paste your LaTeX source here..."></textarea>
-        <textarea id="bibInput" placeholder="Paste your BibTeX references (optional)..." rows="6" style="margin-top: 20px;"></textarea>
       </div>
     </main>
   </div>
 
-  <script src="app/js/bib-parser.js"></script>
-  <script src="app/js/latex-to-html.js"></script>
-  <script src="app/js/html-generator.js"></script>
-  <script src="app/js/converter.js"></script>
+  <script src="app/js/storage.js"></script>
+  <script src="app/js/bookshelf.js"></script>
 </body>
 </html>
