@@ -57,110 +57,133 @@
     return formatted.join(', ') + ' & ' + last;
   }
 
-  // --- Helper: Parse table content robustly ---
+  // --- Robust table parser ---
   function parseTableContent(content) {
-    // Remove column specification (e.g., {@{} X ... @{}})
-    let clean = content.replace(/^@\{\}.*?@\{\}/, '');
-    // Remove any remaining column spec at start
-    clean = clean.replace(/^\{[^}]*\}/, '');
+    // Step 1: Remove the column specification line
+    // This handles both tabularx and tabular column specs
+    // Pattern: { >{...} ... X ... @{} } or { l c r } etc.
+    // We remove the entire first line that contains the column spec
+    let lines = content.split('\n').filter(line => line.trim() !== '');
     
-    // Split rows by \\, but be careful with escaped newlines
-    // First, handle the case where there might be no newline after \\
+    // Remove the first line if it contains a column specification (starts with { or contains >{ or @{)
+    if (lines.length > 0) {
+      const firstLine = lines[0].trim();
+      if (firstLine.startsWith('{') || firstLine.includes('>{') || firstLine.includes('@{') || firstLine.includes('p{') || firstLine.includes('X')) {
+        lines = lines.slice(1);
+      }
+    }
+    
+    // Join back
+    let clean = lines.join('\n');
+    
+    // Step 2: Split rows by \\ that are not escaped and not inside commands
     const rows = [];
-    // We need to split on \\ that are not escaped
     let current = '';
-    let inCommand = false;
     let braceDepth = 0;
     let i = 0;
     const str = clean;
+    
     while (i < str.length) {
+      // Check for row separator \\
       if (str[i] === '\\' && i + 1 < str.length && str[i+1] === '\\') {
-        // Found row separator
-        if (braceDepth === 0 && !inCommand) {
-          rows.push(current.trim());
+        // Only split if we're not inside braces (i.e., not inside a command)
+        if (braceDepth === 0) {
+          if (current.trim()) {
+            rows.push(current.trim());
+          }
           current = '';
           i += 2;
           continue;
         }
       }
-      // Track braces for commands
+      
+      // Track braces
       if (str[i] === '{') braceDepth++;
       else if (str[i] === '}') braceDepth--;
-      // Check if we're inside a command
-      if (str[i] === '\\' && i + 1 < str.length && /[a-zA-Z]/.test(str[i+1])) {
-        inCommand = true;
-      }
-      if (inCommand && (str[i] === ' ' || str[i] === '\n' || str[i] === '}')) {
-        inCommand = false;
-      }
+      
       current += str[i];
       i++;
     }
     if (current.trim()) {
       rows.push(current.trim());
     }
-
-    // Process each row
+    
+    if (rows.length === 0) {
+      return '<tr><td>No table data</td></tr>';
+    }
+    
+    // Step 3: Process each row
     let htmlRows = [];
-    let isHeader = false;
+    let isFirstRow = true;
+    
     for (let row of rows) {
-      // Remove \hline, \midrule, \toprule, \bottomrule, \addlinespace
-      row = row.replace(/\\hline/g, '').replace(/\\midrule/g, '').replace(/\\toprule/g, '').replace(/\\bottomrule/g, '').replace(/\\addlinespace/g, '');
-      row = row.trim();
-      if (!row) continue;
+      // Remove LaTeX commands that are just formatting
+      let cleanRow = row
+        .replace(/\\hline/g, '')
+        .replace(/\\midrule/g, '')
+        .replace(/\\toprule/g, '')
+        .replace(/\\bottomrule/g, '')
+        .replace(/\\addlinespace/g, '')
+        .replace(/\\arraybackslash/g, '')
+        .replace(/\\raggedright/g, '')
+        .replace(/\\centering/g, '')
+        .trim();
       
-      // Check if this is a header row (contains \textbf or is all bold)
-      const isBoldRow = /\*\*/.test(row) || row.includes('\\textbf') || /^[A-Z]/.test(row) && !row.includes('&') && row.split('&').length <= 2;
+      if (!cleanRow) continue;
       
-      // Split cells by & (but not escaped)
+      // Step 4: Split cells by & (tracking braces)
       const cells = [];
       let cell = '';
       let depth = 0;
       let j = 0;
-      while (j < row.length) {
-        if (row[j] === '{') depth++;
-        else if (row[j] === '}') depth--;
-        if (row[j] === '&' && depth === 0) {
+      const rowStr = cleanRow;
+      
+      while (j < rowStr.length) {
+        if (rowStr[j] === '{') depth++;
+        else if (rowStr[j] === '}') depth--;
+        
+        if (rowStr[j] === '&' && depth === 0) {
           cells.push(cell.trim());
           cell = '';
           j++;
           continue;
         }
-        cell += row[j];
+        cell += rowStr[j];
         j++;
       }
       if (cell.trim() || cells.length > 0) {
         cells.push(cell.trim());
       }
       
+      if (cells.length === 0) continue;
+      
       // Clean each cell
       const cleanedCells = cells.map(c => {
-        // Remove any remaining column spec noise
-        c = c.replace(/^@\{\}/, '').replace(/@\{\}$/, '');
+        // Remove column specifier debris
+        c = c.replace(/^>{\\bfseries\\raggedright\\arraybackslash}/, '');
+        c = c.replace(/^>{\\centering\\arraybackslash}/, '');
+        c = c.replace(/^@\{\}/, '');
+        c = c.replace(/@\{\}$/, '');
+        c = c.replace(/^p\{[^}]*\}/, '');
+        c = c.replace(/^X/, '');
         // Convert \textbf{...} to <strong>...</strong>
         c = c.replace(/\\textbf\{([^}]*)\}/g, '<strong>$1</strong>');
         // Convert \newline to <br>
         c = c.replace(/\\newline/g, '<br>');
-        // Handle multi-line cells
+        // Remove any remaining \ (that aren't part of HTML)
+        c = c.replace(/\\([^a-zA-Z])/g, '$1');
         return c;
       });
       
-      // Use th for first row if it looks like a header, or for cells with bold content
-      const useTh = isBoldRow || (cleanedCells.length > 0 && cleanedCells[0].includes('<strong>'));
-      const tag = useTh ? 'th' : 'td';
-      
-      if (cleanedCells.length === 0) continue;
-      
+      // Use th for first row
+      const tag = isFirstRow ? 'th' : 'td';
       let rowHtml = '<tr>';
       for (let cell of cleanedCells) {
-        // If it's a header, use th, else td
         rowHtml += `<${tag}>${cell}</${tag}>`;
       }
       rowHtml += '</tr>';
       htmlRows.push(rowHtml);
-      
-      // After first row, switch to td
-      isHeader = false;
+      isFirstRow = false;
     }
     
     return htmlRows.join('\n');
@@ -181,14 +204,14 @@
     // Extract tabular/tabularx content
     let tableContent = '';
     // Try tabularx first
-    let tabMatch = content.match(/\\begin\{tabularx\}[^{]*\{[^}]*\}([\s\S]*?)\\end\{tabularx\}/);
+    let tabMatch = content.match(/\\begin\{tabularx\}[^{]*(\{[^}]*\})?([\s\S]*?)\\end\{tabularx\}/);
     if (tabMatch) {
-      tableContent = tabMatch[1];
+      tableContent = tabMatch[2] || tabMatch[1] || '';
     } else {
       // Try regular tabular
-      tabMatch = content.match(/\\begin\{tabular\}[^{]*\{[^}]*\}([\s\S]*?)\\end\{tabular\}/);
+      tabMatch = content.match(/\\begin\{tabular\}[^{]*(\{[^}]*\})?([\s\S]*?)\\end\{tabular\}/);
       if (tabMatch) {
-        tableContent = tabMatch[1];
+        tableContent = tabMatch[2] || tabMatch[1] || '';
       } else {
         // Try just \begin{tabular}
         tabMatch = content.match(/\\begin\{tabular\}([\s\S]*?)\\end\{tabular\}/);
@@ -227,9 +250,10 @@
 
     let html = source;
 
-    // 1. MASK TABLE ENVIRONMENTS (first, to protect them from other regexes)
+    // 1. MASK TABLE ENVIRONMENTS
     const tableStash = [];
-    // match \begin{table}...\end{table} and \begin{table*}, etc.
+    
+    // Match \begin{table}...\end{table}
     const tableRegex = /(?<!\\\\)\\begin\{table\*?\}([\s\S]*?)(?<!\\\\)\\end\{table\*?\}/g;
     html = html.replace(tableRegex, (match, inner) => {
       const token = `@@TABLE_${tableStash.length}@@`;
@@ -238,24 +262,27 @@
       return `\n\n${token}\n\n`;
     });
 
-    // Also catch standalone tabularx and tabular
-    const tabularxRegex = /(?<!\\\\)\\begin\{tabularx\}[^{]*\{[^}]*\}([\s\S]*?)(?<!\\\\)\\end\{tabularx\}/g;
-    html = html.replace(tabularxRegex, (match, inner) => {
+    // Match standalone tabularx
+    const tabularxRegex = /(?<!\\\\)\\begin\{tabularx\}[^{]*(\{[^}]*\})?([\s\S]*?)(?<!\\\\)\\end\{tabularx\}/g;
+    html = html.replace(tabularxRegex, (match, colSpec, inner) => {
       const token = `@@TABLE_${tableStash.length}@@`;
-      const wrapped = processTableEnvironment(`\\begin{tabularx}{}\\n${inner}\\n\\end{tabularx}`);
+      const fullInner = inner || colSpec || '';
+      const wrapped = processTableEnvironment(`\\begin{tabularx}${fullInner}\\end{tabularx}`);
       tableStash.push({ token, content: wrapped });
       return `\n\n${token}\n\n`;
     });
 
-    const tabularRegex = /(?<!\\\\)\\begin\{tabular\}[^{]*\{[^}]*\}([\s\S]*?)(?<!\\\\)\\end\{tabular\}/g;
-    html = html.replace(tabularRegex, (match, inner) => {
+    // Match standalone tabular
+    const tabularRegex = /(?<!\\\\)\\begin\{tabular\}[^{]*(\{[^}]*\})?([\s\S]*?)(?<!\\\\)\\end\{tabular\}/g;
+    html = html.replace(tabularRegex, (match, colSpec, inner) => {
       const token = `@@TABLE_${tableStash.length}@@`;
-      const wrapped = processTableEnvironment(`\\begin{tabular}{}\\n${inner}\\n\\end{tabular}`);
+      const fullInner = inner || colSpec || '';
+      const wrapped = processTableEnvironment(`\\begin{tabular}${fullInner}\\end{tabular}`);
       tableStash.push({ token, content: wrapped });
       return `\n\n${token}\n\n`;
     });
 
-    // 2. MASK MATH (same as before)
+    // 2. MASK MATH
     const mathStash = [];
     const mathEnvs = ['equation', 'equation\\*', 'align', 'align\\*', 'gather', 'gather\\*', 'eqnarray', 'eqnarray\\*', 'multline', 'multline\\*', 'split'];
     const envRegex = new RegExp(`(?<!\\\\)\\\\begin\\{(${mathEnvs.join('|')})\\}([\\s\\S]*?)(?<!\\\\)\\\\end\\{\\1\\}`, 'g');
@@ -324,7 +351,6 @@
       return `\n\n<div class="abstract">\n\n${content.trim()}\n\n</div>\n\n`;
     });
 
-    // Theorems, proofs, etc. are now plain
     const blocks = ['theorem', 'lemma', 'proposition', 'corollary', 'definition', 'remark', 'example', 'proof'];
     blocks.forEach(env => {
       const regex = new RegExp(`\\\\begin\\{${env}\\}([\\s\\S]*?)\\\\end\\{${env}\\}`, 'gi');
@@ -417,7 +443,7 @@
     html = html.replace(/\\(?:tcite|textcite)\{([^}]+)\}/g, (_, keys) => makeCite(keys, 'text'));
     html = html.replace(/\\cite\{([^}]+)\}/g, (_, keys) => makeCite(keys, 'paren'));
 
-    // 8. Remove unknown commands
+    // Remove unknown commands
     html = html.replace(/\\\\/g, '<br>');
     let prevHtml;
     do {
@@ -426,7 +452,7 @@
     } while (html !== prevHtml);
     html = html.replace(/\\([^a-zA-Z0-9])/g, '$1');
 
-    // 9. Paragraph wrapping
+    // Paragraph wrapping
     const paragraphs = html.split(/\n\s*\n/);
     html = paragraphs.map(para => {
       let trimmed = para.trim();
@@ -438,7 +464,7 @@
       return `<p>${trimmed}</p>`;
     }).join('\n');
 
-    // 10. UNMASK TABLE and MATH
+    // UNMASK TABLE and MATH
     tableStash.forEach(m => {
       html = html.split(m.token).join(m.content);
     });
@@ -446,7 +472,7 @@
       html = html.split(m.token).join(m.content);
     });
 
-    // 11. Restore special characters
+    // Restore special characters
     html = html.replace(/___ESC_AMP___/g, '&amp;');
     html = html.replace(/___ESC_PCT___/g, '%');
     html = html.replace(/___ESC_DOLLAR___/g, '$');
@@ -455,7 +481,7 @@
     html = html.replace(/___ESC_LBRACE___/g, '{');
     html = html.replace(/___ESC_RBRACE___/g, '}');
 
-    // 12. Article header
+    // Article header
     let headerHTML = '';
     if (title || author || date) {
       headerHTML += '<div class="article-header">';
