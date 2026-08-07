@@ -38,91 +38,44 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   setupCodeCopy();
 
-  // 5. Bookmark feature with visual feedback
+  // 5. Automatic, completely private bookmarking
   (function() {
-    const BOOKMARK_KEY = 'visa-bookmark';
+    // We create a unique key based on the document's title and file path.
+    // This ensures that different documents have their own unique saved positions.
+    const uniqueString = (document.title + window.location.pathname).replace(/[^a-zA-Z0-9]/g, '');
+    const BOOKMARK_KEY = 'textohtml-bookmark-' + uniqueString;
 
     function getCurrentSectionId() {
       const headings = document.querySelectorAll('h2, h3, h4');
       let current = null;
       for (const h of headings) {
         const rect = h.getBoundingClientRect();
-        if (rect.top <= 100) { 
+        // If the heading is near the top of the viewport
+        if (rect.top <= 150) { 
           current = h.id;
-        } else if (rect.top > 100) {
+        } else if (rect.top > 150) {
           break;
         }
       }
       return current;
     }
 
-    function showToast(message) {
-      const existing = document.querySelector('.bookmark-toast');
-      if (existing) existing.remove();
-      const toast = document.createElement('div');
-      toast.className = 'bookmark-toast';
-      toast.textContent = message;
-      toast.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: var(--bg-color);
-        color: var(--text-color);
-        padding: 10px 20px;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        z-index: 9999;
-        font-family: 'Open Sans', sans-serif;
-        font-size: 14px;
-        opacity: 0;
-        transition: opacity 0.3s;
-      `;
-      document.body.appendChild(toast);
-      requestAnimationFrame(() => { toast.style.opacity = '1'; });
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-      }, 2000);
-    }
-
-    function updateBookmarkIcon(hasBookmark) {
-      const emptyIcon = document.getElementById('bookmark-empty');
-      const filledIcon = document.getElementById('bookmark-filled');
-      if (emptyIcon && filledIcon) {
-        emptyIcon.style.display = hasBookmark ? 'none' : 'inline';
-        filledIcon.style.display = hasBookmark ? 'inline' : 'none';
-      }
-    }
-
-    function hasExistingBookmark() {
-      try {
-        return localStorage.getItem(BOOKMARK_KEY) !== null;
-      } catch (e) {
-        return false;
-      }
-    }
-
     function saveBookmark() {
       const scrollY = window.scrollY;
+      
+      // If we are at the very top of the page, don't bother saving.
+      if (scrollY < 50) return;
+      
       const sectionId = getCurrentSectionId();
       const bookmark = { scrollY, sectionId };
+      
       try {
+        // [DATA SAFETY NOTE]: localStorage is a sandboxed vault inside YOUR browser.
+        // It never communicates with any server. Your reading position is mathematically
+        // incapable of being leaked to us or anyone else. It is 100% private.
         localStorage.setItem(BOOKMARK_KEY, JSON.stringify(bookmark));
-        updateBookmarkIcon(true);
-        showToast('Kirjanmerkki tallennettu!');
       } catch (e) {
-        showToast('Kirjanmerkin tallennus epäonnistui.');
-      }
-    }
-
-    function clearBookmark() {
-      try {
-        localStorage.removeItem(BOOKMARK_KEY);
-        updateBookmarkIcon(false);
-        showToast('Kirjanmerkki poistettu.');
-      } catch (e) {
-        showToast('Kirjanmerkin poisto epäonnistui.');
+        // Silently ignore errors (e.g., if the user is in strict Incognito mode)
       }
     }
 
@@ -130,36 +83,34 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
         const data = localStorage.getItem(BOOKMARK_KEY);
         if (!data) return;
+        
         const bookmark = JSON.parse(data);
-        if (typeof bookmark.scrollY === 'number') {
+        if (typeof bookmark.scrollY === 'number' && bookmark.scrollY > 0) {
           window.scrollTo({ top: bookmark.scrollY, behavior: 'smooth' });
+          
+          // Briefly highlight the section the user was reading
           if (bookmark.sectionId) {
             const el = document.getElementById(bookmark.sectionId);
             if (el) {
-              el.style.transition = 'background-color 0.3s';
+              el.style.transition = 'background-color 0.8s';
               el.style.backgroundColor = 'var(--border-color)';
-              setTimeout(() => el.style.backgroundColor = '', 2000);
+              setTimeout(() => el.style.backgroundColor = '', 1500);
             }
           }
         }
-        updateBookmarkIcon(true);
       } catch (e) {
+        // Silently fail if data is corrupted
       }
     }
 
-    const bookmarkBtn = document.getElementById('bookmark-btn');
-    if (bookmarkBtn) {
-      updateBookmarkIcon(hasExistingBookmark());
-      bookmarkBtn.addEventListener('click', function() {
-        const hasBookmark = hasExistingBookmark();
-        if (hasBookmark) {
-          clearBookmark();
-        } else {
-          saveBookmark();
-        }
-      });
-    }
+    // Instead of a button, we silently save the user's position shortly after they stop scrolling.
+    let scrollTimeout;
+    window.addEventListener('scroll', function() {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(saveBookmark, 300); // Saves 300ms after scrolling stops
+    }, { passive: true });
 
-    setTimeout(restoreBookmark, 600);
+    // Wait briefly for MathJax to finish typesetting and expanding the page height before jumping.
+    setTimeout(restoreBookmark, 800);
   })();
 });
