@@ -67,10 +67,10 @@ input[type="text"]#searchInput:focus {
 .entry-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: flex-start; /* Changed from baseline so long titles wrap nicely */
   margin-bottom: 8px;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-wrap: nowrap; /* Prevent the date from dropping to a new line */
+  gap: 1rem;
 }
 
 .entry-title {
@@ -79,6 +79,9 @@ input[type="text"]#searchInput:focus {
   text-decoration: none;
   color: var(--text);
   cursor: pointer;
+  flex: 1; /* Allow title to take up available space */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .entry:hover .entry-title {
@@ -90,6 +93,9 @@ input[type="text"]#searchInput:focus {
 .entry-date {
   font-size: 0.9rem;
   color: var(--text-muted);
+  white-space: nowrap; /* Force the date to stay on one line */
+  flex-shrink: 0; /* Prevent the date from being squished by a long title */
+  margin-top: 0.4rem; /* Visually align with the top of the title text */
 }
 
 .entry-author {
