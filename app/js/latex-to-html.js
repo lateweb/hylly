@@ -57,15 +57,23 @@
     return formatted.join(', ') + ' & ' + last;
   }
 
+  // Format authors for citations (with et al.)
+  function formatCitationAuthors(authorStr) {
+    const authors = parseAuthors(authorStr);
+    if (authors.length === 0) return '';
+    if (authors.length === 1) {
+      return authors[0].last;
+    } else if (authors.length === 2) {
+      return authors[0].last + ' & ' + authors[1].last;
+    } else {
+      return authors[0].last + ' et al.';
+    }
+  }
+
   // --- Robust table parser ---
   function parseTableContent(content) {
-    // Step 1: Remove the column specification line
-    // This handles both tabularx and tabular column specs
-    // Pattern: { >{...} ... X ... @{} } or { l c r } etc.
-    // We remove the entire first line that contains the column spec
     let lines = content.split('\n').filter(line => line.trim() !== '');
     
-    // Remove the first line if it contains a column specification (starts with { or contains >{ or @{)
     if (lines.length > 0) {
       const firstLine = lines[0].trim();
       if (firstLine.startsWith('{') || firstLine.includes('>{') || firstLine.includes('@{') || firstLine.includes('p{') || firstLine.includes('X')) {
@@ -73,10 +81,8 @@
       }
     }
     
-    // Join back
     let clean = lines.join('\n');
     
-    // Step 2: Split rows by \\ that are not escaped and not inside commands
     const rows = [];
     let current = '';
     let braceDepth = 0;
@@ -84,9 +90,7 @@
     const str = clean;
     
     while (i < str.length) {
-      // Check for row separator \\
       if (str[i] === '\\' && i + 1 < str.length && str[i+1] === '\\') {
-        // Only split if we're not inside braces (i.e., not inside a command)
         if (braceDepth === 0) {
           if (current.trim()) {
             rows.push(current.trim());
@@ -96,11 +100,8 @@
           continue;
         }
       }
-      
-      // Track braces
       if (str[i] === '{') braceDepth++;
       else if (str[i] === '}') braceDepth--;
-      
       current += str[i];
       i++;
     }
@@ -112,12 +113,10 @@
       return '<tr><td>No table data</td></tr>';
     }
     
-    // Step 3: Process each row
     let htmlRows = [];
     let isFirstRow = true;
     
     for (let row of rows) {
-      // Remove LaTeX commands that are just formatting
       let cleanRow = row
         .replace(/\\hline/g, '')
         .replace(/\\midrule/g, '')
@@ -131,7 +130,6 @@
       
       if (!cleanRow) continue;
       
-      // Step 4: Split cells by & (tracking braces)
       const cells = [];
       let cell = '';
       let depth = 0;
@@ -141,7 +139,6 @@
       while (j < rowStr.length) {
         if (rowStr[j] === '{') depth++;
         else if (rowStr[j] === '}') depth--;
-        
         if (rowStr[j] === '&' && depth === 0) {
           cells.push(cell.trim());
           cell = '';
@@ -157,25 +154,19 @@
       
       if (cells.length === 0) continue;
       
-      // Clean each cell
       const cleanedCells = cells.map(c => {
-        // Remove column specifier debris
         c = c.replace(/^>{\\bfseries\\raggedright\\arraybackslash}/, '');
         c = c.replace(/^>{\\centering\\arraybackslash}/, '');
         c = c.replace(/^@\{\}/, '');
         c = c.replace(/@\{\}$/, '');
         c = c.replace(/^p\{[^}]*\}/, '');
         c = c.replace(/^X/, '');
-        // Convert \textbf{...} to <strong>...</strong>
         c = c.replace(/\\textbf\{([^}]*)\}/g, '<strong>$1</strong>');
-        // Convert \newline to <br>
         c = c.replace(/\\newline/g, '<br>');
-        // Remove any remaining \ (that aren't part of HTML)
         c = c.replace(/\\([^a-zA-Z])/g, '$1');
         return c;
       });
       
-      // Use th for first row
       const tag = isFirstRow ? 'th' : 'td';
       let rowHtml = '<tr>';
       for (let cell of cleanedCells) {
@@ -189,31 +180,25 @@
     return htmlRows.join('\n');
   }
 
-  // --- Helper: process table environment ---
   function processTableEnvironment(inner) {
     let caption = '';
     let content = inner;
     
-    // Extract caption
     const capMatch = content.match(/\\caption\{([^}]*)\}/);
     if (capMatch) {
       caption = capMatch[1];
       content = content.replace(/\\caption\{[^}]*\}/, '');
     }
     
-    // Extract tabular/tabularx content
     let tableContent = '';
-    // Try tabularx first
     let tabMatch = content.match(/\\begin\{tabularx\}[^{]*(\{[^}]*\})?([\s\S]*?)\\end\{tabularx\}/);
     if (tabMatch) {
       tableContent = tabMatch[2] || tabMatch[1] || '';
     } else {
-      // Try regular tabular
       tabMatch = content.match(/\\begin\{tabular\}[^{]*(\{[^}]*\})?([\s\S]*?)\\end\{tabular\}/);
       if (tabMatch) {
         tableContent = tabMatch[2] || tabMatch[1] || '';
       } else {
-        // Try just \begin{tabular}
         tabMatch = content.match(/\\begin\{tabular\}([\s\S]*?)\\end\{tabular\}/);
         if (tabMatch) {
           tableContent = tabMatch[1];
@@ -225,7 +210,6 @@
       return `<div class="table-wrap"><p>${content.trim()}</p></div>`;
     }
     
-    // Parse the table content
     const rows = parseTableContent(tableContent);
     
     let tableHtml = '<table class="latex-table">';
@@ -252,8 +236,6 @@
 
     // 1. MASK TABLE ENVIRONMENTS
     const tableStash = [];
-    
-    // Match \begin{table}...\end{table}
     const tableRegex = /(?<!\\\\)\\begin\{table\*?\}([\s\S]*?)(?<!\\\\)\\end\{table\*?\}/g;
     html = html.replace(tableRegex, (match, inner) => {
       const token = `@@TABLE_${tableStash.length}@@`;
@@ -262,7 +244,6 @@
       return `\n\n${token}\n\n`;
     });
 
-    // Match standalone tabularx
     const tabularxRegex = /(?<!\\\\)\\begin\{tabularx\}[^{]*(\{[^}]*\})?([\s\S]*?)(?<!\\\\)\\end\{tabularx\}/g;
     html = html.replace(tabularxRegex, (match, colSpec, inner) => {
       const token = `@@TABLE_${tableStash.length}@@`;
@@ -272,7 +253,6 @@
       return `\n\n${token}\n\n`;
     });
 
-    // Match standalone tabular
     const tabularRegex = /(?<!\\\\)\\begin\{tabular\}[^{]*(\{[^}]*\})?([\s\S]*?)(?<!\\\\)\\end\{tabular\}/g;
     html = html.replace(tabularRegex, (match, colSpec, inner) => {
       const token = `@@TABLE_${tableStash.length}@@`;
@@ -407,38 +387,49 @@
     html = html.replace(/\\caption\{([^}]+)\}/g, '<div class="caption"><em>$1</em></div>');
     html = html.replace(/\\centering/g, '');
 
-    // Cites
-    function getLastName(authorStr) {
-      if (authorStr.includes(',')) return authorStr.split(',')[0].trim();
-      const parts = authorStr.trim().split(/\s+/);
-      return parts[parts.length - 1];
-    }
-    function getAuthorYear(key) {
+    // --- CITATION LOGIC (fixed with no comma between author and year) ---
+    function getCitationAuthorsAndYear(key) {
       const entry = bibEntries.find(e => e.key === key);
-      if (!entry) return { author: key, year: '' };
+      if (!entry) {
+        return { author: key, year: '' };
+      }
       let authorField = entry.fields.author || '';
-      let authorStr = formatAuthors(authorField);
-      if (!authorStr) authorStr = key;
-      return { author: authorStr, year: entry.fields.year || '' };
+      let year = entry.fields.year || '';
+      
+      let author = formatCitationAuthors(authorField);
+      if (!author) author = key;
+      
+      return { author, year };
     }
+
     function makeCite(keys, type) {
       const keyArray = keys.split(',').map(k => k.trim());
+      
       if (type === 'paren') {
+        // Format: (Author Year) or (Author1 & Author2 Year) or (Author1 et al. Year)
+        // Multiple: (Author1 Year; Author2 Year)
         const inner = keyArray.map(key => {
-          const { author, year } = getAuthorYear(key);
-          const text = year ? `${author}, ${year}` : author;
+          const { author, year } = getCitationAuthorsAndYear(key);
+          const text = year ? `${author} ${year}` : author;
           return `<a href="#bib-${key}" class="cite-link" data-cite="${key}">${text}</a>`;
         }).join('; ');
         return `(${inner})`;
+        
       } else if (type === 'text') {
+        // Author (Year) or Author1 & Author2 (Year)
         return keyArray.map(key => {
-          const { author, year } = getAuthorYear(key);
-          if (year) { return `${author} (<a href="#bib-${key}" class="cite-link" data-cite="${key}">${year}</a>)`; }
+          const { author, year } = getCitationAuthorsAndYear(key);
+          if (year) {
+            return `${author} (<a href="#bib-${key}" class="cite-link" data-cite="${key}">${year}</a>)`;
+          }
           return `<a href="#bib-${key}" class="cite-link" data-cite="${key}">${author}</a>`;
         }).join(' ja ');
       }
+      
+      // fallback
       return `[${keys}]`;
     }
+
     html = html.replace(/\\(?:pcite|parencite)\{([^}]+)\}/g, (_, keys) => makeCite(keys, 'paren'));
     html = html.replace(/\\(?:tcite|textcite)\{([^}]+)\}/g, (_, keys) => makeCite(keys, 'text'));
     html = html.replace(/\\cite\{([^}]+)\}/g, (_, keys) => makeCite(keys, 'paren'));
