@@ -90,7 +90,6 @@ input[type="text"]#searchInput:focus {
 .entry-date {
   font-size: 0.9rem;
   color: var(--text-muted);
-  font-style: italic;
 }
 
 .entry-author {
@@ -105,7 +104,7 @@ input[type="text"]#searchInput:focus {
 }
 
 .entry-actions .btn {
-  z-index: 2; /* Ensures buttons can be clicked */
+  z-index: 2; 
   position: relative;
 }
 
