@@ -1,6 +1,30 @@
 // template/js/bib-parser-minimal.js
 (function(global) {
   'use strict';
+
+  // Reuse the same author parsing helpers as in the main app
+  function parseAuthors(authorStr) {
+    if (!authorStr) return [];
+    const parts = authorStr.split(/\s+(?:and|\\and)\s+/i);
+    return parts.map(a => a.trim()).filter(a => a.length > 0).map(a => {
+      let cleaned = a.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+      const tokens = cleaned.split(/\s+/);
+      if (tokens.length === 0) return { last: '', first: '' };
+      const last = tokens.pop();
+      const first = tokens.map(t => t.charAt(0).toUpperCase() + '.').join(' ');
+      return { last, first };
+    });
+  }
+
+  function formatAuthors(authorStr) {
+    const authors = parseAuthors(authorStr);
+    if (authors.length === 0) return '';
+    const formatted = authors.map(a => a.first ? `${a.last}, ${a.first}` : a.last);
+    if (formatted.length === 1) return formatted[0];
+    const last = formatted.pop();
+    return formatted.join(', ') + ' & ' + last;
+  }
+
   function formatBibEntry(entry) {
     const f = entry.fields;
     let author = f.author || '';
@@ -12,7 +36,7 @@
     let pages = f.pages || '';
     let doi = f.doi || '';
 
-    author = author.replace(/\s+and\s+/ig, ' & ');
+    author = formatAuthors(author);
 
     let formatted = '';
     if (author) formatted += '<strong>' + author + '</strong>. ';
@@ -38,5 +62,9 @@
 
     return formatted;
   }
+
   global.formatBibEntry = formatBibEntry;
+  // Expose helpers for consistency (though not used in template)
+  global.parseAuthors = parseAuthors;
+  global.formatAuthors = formatAuthors;
 })(window);
