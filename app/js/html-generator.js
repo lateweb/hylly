@@ -70,6 +70,10 @@
       if (isDark) bodyClasses.push('dark');
       const bodyClassAttr = bodyClasses.length > 0 ? ` class="${bodyClasses.join(' ')}"` : '';
 
+      // Highlight.js themes
+      const highlightCssLight = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+      const highlightCssDark = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css';
+
       return `<!DOCTYPE html>
 <html lang="fi">
 <head>
@@ -121,6 +125,11 @@
     };
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
+
+  <!-- Syntax highlighting: highlight.js -->
+  <link rel="stylesheet" id="hljs-theme-light" href="${highlightCssLight}" ${isDark ? 'disabled' : ''}>
+  <link rel="stylesheet" id="hljs-theme-dark" href="${highlightCssDark}" ${isDark ? '' : 'disabled'}>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
   <style>
 ${cssContent}
@@ -198,6 +207,29 @@ ${cssContent}
       ${articleHtml}
     </div>
   </div>
+
+  <!-- Dynamic highlight theme toggle -->
+  <script>
+  (function() {
+    const lightLink = document.getElementById('hljs-theme-light');
+    const darkLink = document.getElementById('hljs-theme-dark');
+    function updateHighlightTheme() {
+      const isDark = document.body.classList.contains('dark');
+      lightLink.disabled = isDark;
+      darkLink.disabled = !isDark;
+    }
+    updateHighlightTheme();
+    const observer = new MutationObserver(function(mutations) {
+      for (let mutation of mutations) {
+        if (mutation.attributeName === 'class') {
+          updateHighlightTheme();
+          break;
+        }
+      }
+    });
+    observer.observe(document.body, { attributes: true });
+  })();
+  </script>
 
   <script>
     var BIBLIOGRAPHY_ENTRIES = ${bibEntriesJson};
