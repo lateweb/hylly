@@ -59,7 +59,7 @@
     // Wire up Delete buttons
     document.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        if (confirm('Are you sure you want to delete this book?')) {
+        if (confirm('Are you sure you want to delete this entry?')) {
           const id = e.target.getAttribute('data-id');
           await window.HyllyStorage.deleteBook(id);
           loadBookshelf(); 
