@@ -34,7 +34,7 @@
     return text.replace(/---/g, '—').replace(/--/g, '–').replace(/``/g, '“').replace(/''/g, '”');
   }
 
-  // --- Helper: parse authors (same as in bib-parser) ---
+  // --- Helper: parse authors ---
   function parseAuthors(authorStr) {
     if (!authorStr) return [];
     const parts = authorStr.split(/\s+(?:and|\\and)\s+/i);
@@ -57,26 +57,162 @@
     return formatted.join(', ') + ' & ' + last;
   }
 
-  // --- Helper: process table content ---
-  function processTableContent(content) {
-    // content is the inside of a tabular or tabularx environment
-    // Split rows by \\ (but avoid splitting on escaped newline)
-    const rows = content.split(/\\\\/).map(r => r.trim()).filter(r => r.length > 0);
+  // --- Helper: Parse table content robustly ---
+  function parseTableContent(content) {
+    // Remove column specification (e.g., {@{} X ... @{}})
+    let clean = content.replace(/^@\{\}.*?@\{\}/, '');
+    // Remove any remaining column spec at start
+    clean = clean.replace(/^\{[^}]*\}/, '');
+    
+    // Split rows by \\, but be careful with escaped newlines
+    // First, handle the case where there might be no newline after \\
+    const rows = [];
+    // We need to split on \\ that are not escaped
+    let current = '';
+    let inCommand = false;
+    let braceDepth = 0;
+    let i = 0;
+    const str = clean;
+    while (i < str.length) {
+      if (str[i] === '\\' && i + 1 < str.length && str[i+1] === '\\') {
+        // Found row separator
+        if (braceDepth === 0 && !inCommand) {
+          rows.push(current.trim());
+          current = '';
+          i += 2;
+          continue;
+        }
+      }
+      // Track braces for commands
+      if (str[i] === '{') braceDepth++;
+      else if (str[i] === '}') braceDepth--;
+      // Check if we're inside a command
+      if (str[i] === '\\' && i + 1 < str.length && /[a-zA-Z]/.test(str[i+1])) {
+        inCommand = true;
+      }
+      if (inCommand && (str[i] === ' ' || str[i] === '\n' || str[i] === '}')) {
+        inCommand = false;
+      }
+      current += str[i];
+      i++;
+    }
+    if (current.trim()) {
+      rows.push(current.trim());
+    }
+
+    // Process each row
     let htmlRows = [];
-    let inHeader = false;
+    let isHeader = false;
     for (let row of rows) {
       // Remove \hline, \midrule, \toprule, \bottomrule, \addlinespace
       row = row.replace(/\\hline/g, '').replace(/\\midrule/g, '').replace(/\\toprule/g, '').replace(/\\bottomrule/g, '').replace(/\\addlinespace/g, '');
       row = row.trim();
       if (!row) continue;
-      // Split cells by &
-      const cells = row.split(/&/).map(c => c.trim());
-      const cellHtml = cells.map(c => `<td>${c}</td>`).join('');
-      // We'll add a class for rows that were separated by \midrule etc.
-      // For simplicity, we just output <tr>
-      htmlRows.push(`<tr>${cellHtml}</tr>`);
+      
+      // Check if this is a header row (contains \textbf or is all bold)
+      const isBoldRow = /\*\*/.test(row) || row.includes('\\textbf') || /^[A-Z]/.test(row) && !row.includes('&') && row.split('&').length <= 2;
+      
+      // Split cells by & (but not escaped)
+      const cells = [];
+      let cell = '';
+      let depth = 0;
+      let j = 0;
+      while (j < row.length) {
+        if (row[j] === '{') depth++;
+        else if (row[j] === '}') depth--;
+        if (row[j] === '&' && depth === 0) {
+          cells.push(cell.trim());
+          cell = '';
+          j++;
+          continue;
+        }
+        cell += row[j];
+        j++;
+      }
+      if (cell.trim() || cells.length > 0) {
+        cells.push(cell.trim());
+      }
+      
+      // Clean each cell
+      const cleanedCells = cells.map(c => {
+        // Remove any remaining column spec noise
+        c = c.replace(/^@\{\}/, '').replace(/@\{\}$/, '');
+        // Convert \textbf{...} to <strong>...</strong>
+        c = c.replace(/\\textbf\{([^}]*)\}/g, '<strong>$1</strong>');
+        // Convert \newline to <br>
+        c = c.replace(/\\newline/g, '<br>');
+        // Handle multi-line cells
+        return c;
+      });
+      
+      // Use th for first row if it looks like a header, or for cells with bold content
+      const useTh = isBoldRow || (cleanedCells.length > 0 && cleanedCells[0].includes('<strong>'));
+      const tag = useTh ? 'th' : 'td';
+      
+      if (cleanedCells.length === 0) continue;
+      
+      let rowHtml = '<tr>';
+      for (let cell of cleanedCells) {
+        // If it's a header, use th, else td
+        rowHtml += `<${tag}>${cell}</${tag}>`;
+      }
+      rowHtml += '</tr>';
+      htmlRows.push(rowHtml);
+      
+      // After first row, switch to td
+      isHeader = false;
     }
+    
     return htmlRows.join('\n');
+  }
+
+  // --- Helper: process table environment ---
+  function processTableEnvironment(inner) {
+    let caption = '';
+    let content = inner;
+    
+    // Extract caption
+    const capMatch = content.match(/\\caption\{([^}]*)\}/);
+    if (capMatch) {
+      caption = capMatch[1];
+      content = content.replace(/\\caption\{[^}]*\}/, '');
+    }
+    
+    // Extract tabular/tabularx content
+    let tableContent = '';
+    // Try tabularx first
+    let tabMatch = content.match(/\\begin\{tabularx\}[^{]*\{[^}]*\}([\s\S]*?)\\end\{tabularx\}/);
+    if (tabMatch) {
+      tableContent = tabMatch[1];
+    } else {
+      // Try regular tabular
+      tabMatch = content.match(/\\begin\{tabular\}[^{]*\{[^}]*\}([\s\S]*?)\\end\{tabular\}/);
+      if (tabMatch) {
+        tableContent = tabMatch[1];
+      } else {
+        // Try just \begin{tabular}
+        tabMatch = content.match(/\\begin\{tabular\}([\s\S]*?)\\end\{tabular\}/);
+        if (tabMatch) {
+          tableContent = tabMatch[1];
+        }
+      }
+    }
+    
+    if (!tableContent) {
+      return `<div class="table-wrap"><p>${content.trim()}</p></div>`;
+    }
+    
+    // Parse the table content
+    const rows = parseTableContent(tableContent);
+    
+    let tableHtml = '<table class="latex-table">';
+    if (caption) {
+      tableHtml += `<caption>${caption}</caption>`;
+    }
+    tableHtml += rows;
+    tableHtml += '</table>';
+    
+    return `<div class="table-wrap">${tableHtml}</div>`;
   }
 
   function latexToHTML(source, bibEntries) {
@@ -97,38 +233,24 @@
     const tableRegex = /(?<!\\\\)\\begin\{table\*?\}([\s\S]*?)(?<!\\\\)\\end\{table\*?\}/g;
     html = html.replace(tableRegex, (match, inner) => {
       const token = `@@TABLE_${tableStash.length}@@`;
-      // process inner to extract caption and tabular
-      let caption = '';
-      let tabularContent = '';
-      // try to find \caption{...}
-      const capMatch = inner.match(/\\caption\{([^}]*)\}/);
-      if (capMatch) {
-        caption = capMatch[1];
-        inner = inner.replace(/\\caption\{[^}]*\}/, '');
-      }
-      // find \begin{tabular} or \begin{tabularx}
-      const tabMatch = inner.match(/\\begin\{tabularx?\}([\s\S]*?)\\end\{tabularx?\}/);
-      if (tabMatch) {
-        tabularContent = tabMatch[1];
-      } else {
-        // maybe just \begin{tabular}
-        const tabMatch2 = inner.match(/\\begin\{tabular\}([\s\S]*?)\\end\{tabular\}/);
-        if (tabMatch2) {
-          tabularContent = tabMatch2[1];
-        }
-      }
-      // Build HTML table
-      let tableHtml = '<table class="latex-table">';
-      if (caption) {
-        tableHtml += `<caption>${caption}</caption>`;
-      }
-      if (tabularContent) {
-        const rows = processTableContent(tabularContent);
-        tableHtml += rows;
-      }
-      tableHtml += '</table>';
-      // wrap in a figure/div
-      const wrapped = `<div class="table-wrap">${tableHtml}</div>`;
+      const wrapped = processTableEnvironment(inner);
+      tableStash.push({ token, content: wrapped });
+      return `\n\n${token}\n\n`;
+    });
+
+    // Also catch standalone tabularx and tabular
+    const tabularxRegex = /(?<!\\\\)\\begin\{tabularx\}[^{]*\{[^}]*\}([\s\S]*?)(?<!\\\\)\\end\{tabularx\}/g;
+    html = html.replace(tabularxRegex, (match, inner) => {
+      const token = `@@TABLE_${tableStash.length}@@`;
+      const wrapped = processTableEnvironment(`\\begin{tabularx}{}\\n${inner}\\n\\end{tabularx}`);
+      tableStash.push({ token, content: wrapped });
+      return `\n\n${token}\n\n`;
+    });
+
+    const tabularRegex = /(?<!\\\\)\\begin\{tabular\}[^{]*\{[^}]*\}([\s\S]*?)(?<!\\\\)\\end\{tabular\}/g;
+    html = html.replace(tabularRegex, (match, inner) => {
+      const token = `@@TABLE_${tableStash.length}@@`;
+      const wrapped = processTableEnvironment(`\\begin{tabular}{}\\n${inner}\\n\\end{tabular}`);
       tableStash.push({ token, content: wrapped });
       return `\n\n${token}\n\n`;
     });
@@ -202,7 +324,7 @@
       return `\n\n<div class="abstract">\n\n${content.trim()}\n\n</div>\n\n`;
     });
 
-    // Theorems, proofs, etc. are now plain (no special border)
+    // Theorems, proofs, etc. are now plain
     const blocks = ['theorem', 'lemma', 'proposition', 'corollary', 'definition', 'remark', 'example', 'proof'];
     blocks.forEach(env => {
       const regex = new RegExp(`\\\\begin\\{${env}\\}([\\s\\S]*?)\\\\end\\{${env}\\}`, 'gi');
@@ -254,13 +376,6 @@
 
     html = html.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, '\n\n<blockquote>$1</blockquote>\n\n');
 
-    // Tables are already handled above via masking, but we also have \begin{tabular} fallback
-    // (we already masked table environment, but if there is a standalone tabular, process it)
-    html = html.replace(/\\begin\{tabular\}([\s\S]*?)\\end\{tabular\}/g, (_, content) => {
-      const rows = processTableContent(content);
-      return `\n\n<table class="latex-table">${rows}</table>\n\n`;
-    });
-
     html = html.replace(/\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}/g, '<img src="$1" alt="Kuva">');
     html = html.replace(/\\begin\{figure\}(?:\[[^\]]*\])?([\s\S]*?)\\end\{figure\}/g, '\n\n<div class="figure">$1</div>\n\n');
     html = html.replace(/\\caption\{([^}]+)\}/g, '<div class="caption"><em>$1</em></div>');
@@ -276,7 +391,6 @@
       const entry = bibEntries.find(e => e.key === key);
       if (!entry) return { author: key, year: '' };
       let authorField = entry.fields.author || '';
-      // Use the same formatting as bibliography to get author string
       let authorStr = formatAuthors(authorField);
       if (!authorStr) authorStr = key;
       return { author: authorStr, year: entry.fields.year || '' };
@@ -317,7 +431,7 @@
     html = paragraphs.map(para => {
       let trimmed = para.trim();
       if (!trimmed) return '';
-      if (/^<\/?(h[1-6]|ul|ol|table|div|img|figure|pre|blockquote)/i.test(trimmed) || /^@@(TABLE|MATH)_/.test(trimmed)) {
+      if (/^<\/?(h[1-6]|ul|ol|table|div|img|figure|pre|blockquote|table-wrap)/i.test(trimmed) || /^@@(TABLE|MATH)_/.test(trimmed)) {
         return trimmed;
       }
       trimmed = trimmed.replace(/\n/g, ' ');
