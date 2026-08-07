@@ -10,7 +10,12 @@
   z-index: 20;
 }
 
-.brand h1 {
+.brand {
+  flex: 1;
+  text-align: center;
+}
+
+.brand-title {
   font-size: 18px;
   font-weight: 600;
   color: var(--text);
