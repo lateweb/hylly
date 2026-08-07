@@ -34,6 +34,51 @@
     return text.replace(/---/g, '—').replace(/--/g, '–').replace(/``/g, '“').replace(/''/g, '”');
   }
 
+  // --- Helper: parse authors (same as in bib-parser) ---
+  function parseAuthors(authorStr) {
+    if (!authorStr) return [];
+    const parts = authorStr.split(/\s+(?:and|\\and)\s+/i);
+    return parts.map(a => a.trim()).filter(a => a.length > 0).map(a => {
+      let cleaned = a.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+      const tokens = cleaned.split(/\s+/);
+      if (tokens.length === 0) return { last: '', first: '' };
+      const last = tokens.pop();
+      const first = tokens.map(t => t.charAt(0).toUpperCase() + '.').join(' ');
+      return { last, first };
+    });
+  }
+
+  function formatAuthors(authorStr) {
+    const authors = parseAuthors(authorStr);
+    if (authors.length === 0) return '';
+    const formatted = authors.map(a => a.first ? `${a.last}, ${a.first}` : a.last);
+    if (formatted.length === 1) return formatted[0];
+    const last = formatted.pop();
+    return formatted.join(', ') + ' & ' + last;
+  }
+
+  // --- Helper: process table content ---
+  function processTableContent(content) {
+    // content is the inside of a tabular or tabularx environment
+    // Split rows by \\ (but avoid splitting on escaped newline)
+    const rows = content.split(/\\\\/).map(r => r.trim()).filter(r => r.length > 0);
+    let htmlRows = [];
+    let inHeader = false;
+    for (let row of rows) {
+      // Remove \hline, \midrule, \toprule, \bottomrule, \addlinespace
+      row = row.replace(/\\hline/g, '').replace(/\\midrule/g, '').replace(/\\toprule/g, '').replace(/\\bottomrule/g, '').replace(/\\addlinespace/g, '');
+      row = row.trim();
+      if (!row) continue;
+      // Split cells by &
+      const cells = row.split(/&/).map(c => c.trim());
+      const cellHtml = cells.map(c => `<td>${c}</td>`).join('');
+      // We'll add a class for rows that were separated by \midrule etc.
+      // For simplicity, we just output <tr>
+      htmlRows.push(`<tr>${cellHtml}</tr>`);
+    }
+    return htmlRows.join('\n');
+  }
+
   function latexToHTML(source, bibEntries) {
     let tempSrc = source.replace(/\\%/g, '___PCT___').replace(/%.*/g, '').replace(/___PCT___/g, '\\%');
     let title = cleanMetadata(extractTexMacro(tempSrc, 'title'));
@@ -46,21 +91,59 @@
 
     let html = source;
 
-    // 1. MASK MATH (Protecting all math from greedy command stripping)
+    // 1. MASK TABLE ENVIRONMENTS (first, to protect them from other regexes)
+    const tableStash = [];
+    // match \begin{table}...\end{table} and \begin{table*}, etc.
+    const tableRegex = /(?<!\\\\)\\begin\{table\*?\}([\s\S]*?)(?<!\\\\)\\end\{table\*?\}/g;
+    html = html.replace(tableRegex, (match, inner) => {
+      const token = `@@TABLE_${tableStash.length}@@`;
+      // process inner to extract caption and tabular
+      let caption = '';
+      let tabularContent = '';
+      // try to find \caption{...}
+      const capMatch = inner.match(/\\caption\{([^}]*)\}/);
+      if (capMatch) {
+        caption = capMatch[1];
+        inner = inner.replace(/\\caption\{[^}]*\}/, '');
+      }
+      // find \begin{tabular} or \begin{tabularx}
+      const tabMatch = inner.match(/\\begin\{tabularx?\}([\s\S]*?)\\end\{tabularx?\}/);
+      if (tabMatch) {
+        tabularContent = tabMatch[1];
+      } else {
+        // maybe just \begin{tabular}
+        const tabMatch2 = inner.match(/\\begin\{tabular\}([\s\S]*?)\\end\{tabular\}/);
+        if (tabMatch2) {
+          tabularContent = tabMatch2[1];
+        }
+      }
+      // Build HTML table
+      let tableHtml = '<table class="latex-table">';
+      if (caption) {
+        tableHtml += `<caption>${caption}</caption>`;
+      }
+      if (tabularContent) {
+        const rows = processTableContent(tabularContent);
+        tableHtml += rows;
+      }
+      tableHtml += '</table>';
+      // wrap in a figure/div
+      const wrapped = `<div class="table-wrap">${tableHtml}</div>`;
+      tableStash.push({ token, content: wrapped });
+      return `\n\n${token}\n\n`;
+    });
+
+    // 2. MASK MATH (same as before)
     const mathStash = [];
-    
-    // Protect math environments (align, equation, gather, etc.)
     const mathEnvs = ['equation', 'equation\\*', 'align', 'align\\*', 'gather', 'gather\\*', 'eqnarray', 'eqnarray\\*', 'multline', 'multline\\*', 'split'];
     const envRegex = new RegExp(`(?<!\\\\)\\\\begin\\{(${mathEnvs.join('|')})\\}([\\s\\S]*?)(?<!\\\\)\\\\end\\{\\1\\}`, 'g');
     html = html.replace(envRegex, (match, env, inner) => {
       const token = `@@MATH_D_${mathStash.length}@@`;
       const safeMath = inner.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      // Reconstruct exactly to prevent character drops
       mathStash.push({ token, content: `<div class="math-scroll">\\begin{${env}}${safeMath}\\end{${env}}</div>` });
       return `\n\n${token}\n\n`;
     });
 
-    // Display math \[ ... \]
     html = html.replace(/(?<!\\)\\\[([\s\S]*?)(?<!\\)\\\]/g, (match, inner) => {
       const token = `@@MATH_D_${mathStash.length}@@`;
       const safeMath = inner.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -68,7 +151,6 @@
       return `\n\n${token}\n\n`;
     });
 
-    // Display math $$ ... $$
     html = html.replace(/(?<!\\)\$\$([\s\S]*?)(?<!\\)\$\$/g, (match, inner) => {
       const token = `@@MATH_D_${mathStash.length}@@`;
       const safeMath = inner.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -76,7 +158,6 @@
       return `\n\n${token}\n\n`;
     });
 
-    // Inline math \( ... \)
     html = html.replace(/(?<!\\)\\\(([\s\S]*?)(?<!\\)\\\)/g, (match, inner) => {
       const token = `@@MATH_I_${mathStash.length}@@`;
       const safeMath = inner.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -84,7 +165,6 @@
       return token;
     });
 
-    // Inline math $ ... $
     html = html.replace(/(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g, (match, inner) => {
       const token = `@@MATH_I_${mathStash.length}@@`;
       const safeMath = inner.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -92,7 +172,7 @@
       return token;
     });
 
-    // 2. Protect special chars
+    // 3. Protect special chars
     html = html.replace(/\\&/g, '___ESC_AMP___');
     html = html.replace(/\\%/g, '___ESC_PCT___');
     html = html.replace(/\\\$/g, '___ESC_DOLLAR___');
@@ -101,28 +181,28 @@
     html = html.replace(/\\\{/g, '___ESC_LBRACE___');
     html = html.replace(/\\\}/g, '___ESC_RBRACE___');
 
-    // 3. Remove comments
+    // 4. Remove comments
     html = html.replace(/%.*/g, '');
 
-    // 4. HTML escape
+    // 5. HTML escape
     html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-    // 5. Typography
+    // 6. Typography
     html = applyTypography(html);
 
-    // 6. Strip preamble
+    // 7. Strip preamble
     const beginDoc = html.indexOf('\\begin{document}');
     const endDoc = html.indexOf('\\end{document}');
     if (beginDoc !== -1 && endDoc !== -1 && endDoc > beginDoc) {
       html = html.substring(beginDoc + '\\begin{document}'.length, endDoc);
     }
 
-    // 7. LaTeX structures
+    // 8. LaTeX structures
     html = html.replace(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/g, (_, content) => {
       return `\n\n<div class="abstract">\n\n${content.trim()}\n\n</div>\n\n`;
     });
 
-    // Preserve Theorems, proofs, lemmas, etc., stopping them from being stripped
+    // Theorems, proofs, etc. are now plain (no special border)
     const blocks = ['theorem', 'lemma', 'proposition', 'corollary', 'definition', 'remark', 'example', 'proof'];
     blocks.forEach(env => {
       const regex = new RegExp(`\\\\begin\\{${env}\\}([\\s\\S]*?)\\\\end\\{${env}\\}`, 'gi');
@@ -174,17 +254,11 @@
 
     html = html.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, '\n\n<blockquote>$1</blockquote>\n\n');
 
-    html = html.replace(/\\begin\{tabular\}\{([^}]*)\}([\s\S]*?)\\end\{tabular\}/g, (_, colSpec, content) => {
-      const rows = content.trim().split('\\\\').filter(row => row.trim() !== '' && !row.includes('\\hline'));
-      let table = '<table>';
-      rows.forEach(row => {
-        const cells = row.split(/&amp;/).map(cell => cell.trim());
-        table += '<tr>';
-        cells.forEach(cell => { table += `<td>${cell}</td>`; });
-        table += '</tr>';
-      });
-      table += '</table>';
-      return `\n\n${table}\n\n`;
+    // Tables are already handled above via masking, but we also have \begin{tabular} fallback
+    // (we already masked table environment, but if there is a standalone tabular, process it)
+    html = html.replace(/\\begin\{tabular\}([\s\S]*?)\\end\{tabular\}/g, (_, content) => {
+      const rows = processTableContent(content);
+      return `\n\n<table class="latex-table">${rows}</table>\n\n`;
     });
 
     html = html.replace(/\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}/g, '<img src="$1" alt="Kuva">');
@@ -202,13 +276,9 @@
       const entry = bibEntries.find(e => e.key === key);
       if (!entry) return { author: key, year: '' };
       let authorField = entry.fields.author || '';
-      let authors = authorField.split(/\s+(?:and|\\and)\s+/i).map(a => a.trim());
-      let authorStr = key;
-      if (authors.length > 0 && authors[0] !== '') {
-        if (authors.length === 1) { authorStr = getLastName(authors[0]); }
-        else if (authors.length === 2) { authorStr = getLastName(authors[0]) + ' & ' + getLastName(authors[1]); }
-        else { authorStr = getLastName(authors[0]) + ' et al.'; }
-      }
+      // Use the same formatting as bibliography to get author string
+      let authorStr = formatAuthors(authorField);
+      if (!authorStr) authorStr = key;
       return { author: authorStr, year: entry.fields.year || '' };
     }
     function makeCite(keys, type) {
@@ -247,14 +317,17 @@
     html = paragraphs.map(para => {
       let trimmed = para.trim();
       if (!trimmed) return '';
-      if (/^<\/?(h[1-6]|ul|ol|table|div|img|figure|pre|blockquote)/i.test(trimmed) || /^@@MATH_/.test(trimmed)) {
+      if (/^<\/?(h[1-6]|ul|ol|table|div|img|figure|pre|blockquote)/i.test(trimmed) || /^@@(TABLE|MATH)_/.test(trimmed)) {
         return trimmed;
       }
       trimmed = trimmed.replace(/\n/g, ' ');
       return `<p>${trimmed}</p>`;
     }).join('\n');
 
-    // 10. UNMASK MATH (Safely inserts manually rebuilt tags exactly)
+    // 10. UNMASK TABLE and MATH
+    tableStash.forEach(m => {
+      html = html.split(m.token).join(m.content);
+    });
     mathStash.forEach(m => {
       html = html.split(m.token).join(m.content);
     });
