@@ -1,16 +1,20 @@
 # docs/file-tree.txt
-tex-to-html/
+hylly/
 ├── index.html
+├── converter.html
 ├── app/
 │   ├── css/
 │   │   ├── base.css
 │   │   ├── layout.css
-│   │   └── components.css
+│   │   ├── components.css
+│   │   └── bookshelf.css
 │   └── js/
 │       ├── theme.js
 │       ├── bib-parser.js
 │       ├── latex-to-html.js
 │       ├── html-generator.js
+│       ├── storage.js
+│       ├── bookshelf.js
 │       └── converter.js
 └── template/
     ├── css/
