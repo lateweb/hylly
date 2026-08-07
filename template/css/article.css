@@ -11,7 +11,7 @@
   line-height: 1.2;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  hyphens: auto;
+  hyphens: none; /* Disable hyphenation for titles */
 }
 
 .article-author {
@@ -27,7 +27,7 @@
 }
 
 .abstract {
-  margin: 2rem 0 3rem;
+  margin: 2rem 0 1rem; /* Reduce bottom margin from 3rem to 1rem */
   padding: 1.5rem 2rem;
   border: 1px solid var(--border-color);
 }
@@ -49,6 +49,7 @@
   border-bottom: none;
   font-weight: 600;
   scroll-margin-top: 5rem;
+  hyphens: none; /* Disable hyphenation for headings */
 }
 
 .article-content h3 {
@@ -56,10 +57,12 @@
   margin: 2rem 0 1rem;
   font-weight: 600;
   scroll-margin-top: 5rem;
+  hyphens: none;
 }
 
 .article-content h4 {
   scroll-margin-top: 5rem;
+  hyphens: none;
 }
 
 .article-content ul,
