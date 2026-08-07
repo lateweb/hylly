@@ -11,7 +11,7 @@
   line-height: 1.2;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  hyphens: none; /* Disable hyphenation for titles */
+  hyphens: none;
 }
 
 .article-author {
@@ -27,7 +27,7 @@
 }
 
 .abstract {
-  margin: 2rem 0 1rem; /* Reduce bottom margin from 3rem to 1rem */
+  margin: 2rem 0 1rem;
   padding: 1.5rem 2rem;
   border: 1px solid var(--border-color);
 }
@@ -49,7 +49,7 @@
   border-bottom: none;
   font-weight: 600;
   scroll-margin-top: 5rem;
-  hyphens: none; /* Disable hyphenation for headings */
+  hyphens: none;
 }
 
 .article-content h3 {
@@ -102,11 +102,9 @@
   color: var(--text-color);
 }
 
+/* Theorems, proofs, etc. are now plain text – no special border or background */
 .article-block {
   margin: 1.5rem 0;
-  padding: 1.2rem 1.5rem;
-  border-left: 3px solid var(--text-color);
-  background: rgba(128, 128, 128, 0.05);
 }
 
 .article-block p:last-child {
