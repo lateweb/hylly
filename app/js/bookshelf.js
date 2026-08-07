@@ -2,6 +2,7 @@
 (function() {
   'use strict';
 
+  const LAST_READ_KEY = 'hylly-last-read-id';
   let ALL_BOOKS = [];
 
   function escapeHtml(text) {
@@ -12,6 +13,16 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
+  }
+
+  function openBook(book) {
+    if (book && book.htmlContent) {
+      const blob = new Blob([book.htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Store this as the last opened entry
+      localStorage.setItem(LAST_READ_KEY, book.id);
+    }
   }
 
   function renderBooks(books) {
@@ -42,16 +53,14 @@
       `;
     }).join('');
 
-    // Wire up Read buttons (Opens Blob URL in new tab)
+    // Wire up Read buttons
     document.querySelectorAll('.read-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         const id = e.target.getAttribute('data-id');
         const book = await window.HyllyStorage.getBook(id);
-        if (book && book.htmlContent) {
-          const blob = new Blob([book.htmlContent], { type: 'text/html' });
-          const url = URL.createObjectURL(blob);
-          window.open(url, '_blank');
+        if (book) {
+          openBook(book);
         }
       });
     });
@@ -62,6 +71,11 @@
         if (confirm('Are you sure you want to delete this entry?')) {
           const id = e.target.getAttribute('data-id');
           await window.HyllyStorage.deleteBook(id);
+          // If we just deleted the last-read entry, clear the stored ID
+          const lastRead = localStorage.getItem(LAST_READ_KEY);
+          if (lastRead === id) {
+            localStorage.removeItem(LAST_READ_KEY);
+          }
           loadBookshelf(); 
         }
       });
@@ -83,6 +97,21 @@
     renderBooks(filtered);
   }
 
+  function autoOpenLastRead() {
+    const lastReadId = localStorage.getItem(LAST_READ_KEY);
+    if (!lastReadId) return;
+
+    // Find the book in the already loaded list
+    const book = ALL_BOOKS.find(b => b.id === lastReadId);
+    if (book) {
+      // Open it after a tiny delay to ensure the page is fully rendered
+      setTimeout(() => openBook(book), 300);
+    } else {
+      // The book might have been deleted, clear the stored ID
+      localStorage.removeItem(LAST_READ_KEY);
+    }
+  }
+
   async function loadBookshelf() {
     const shelf = document.getElementById('shelf');
     if (!shelf) return;
@@ -92,6 +121,8 @@
       // Sort by newest first
       ALL_BOOKS.sort((a, b) => b.timestamp - a.timestamp);
       renderBooks(ALL_BOOKS);
+      // After rendering, try to auto-open the last read entry
+      autoOpenLastRead();
     } catch (error) {
       console.error("Error loading bookshelf:", error);
       shelf.innerHTML = '<div class="empty-shelf">Error loading library.</div>';
