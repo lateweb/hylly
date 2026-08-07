@@ -70,117 +70,122 @@
     }
   }
 
-  // --- Robust table parser ---
-  function parseTableContent(content) {
-    let lines = content.split('\n').filter(line => line.trim() !== '');
-    
-    if (lines.length > 0) {
-      const firstLine = lines[0].trim();
-      if (firstLine.startsWith('{') || firstLine.includes('>{') || firstLine.includes('@{') || firstLine.includes('p{') || firstLine.includes('X')) {
-        lines = lines.slice(1);
-      }
-    }
-    
-    let clean = lines.join('\n');
-    
-    const rows = [];
-    let current = '';
-    let braceDepth = 0;
+  // --- Robust table parser with borders ---
+  function parseTableContent(content, colSpec) {
+    // 1. Process colSpec
+    const colStyles = [];
+    let currentBorderLeft = false;
+    let cleanSpec = (colSpec || '').replace(/\s+/g, '');
+
     let i = 0;
-    const str = clean;
-    
-    while (i < str.length) {
-      if (str[i] === '\\' && i + 1 < str.length && str[i+1] === '\\') {
-        if (braceDepth === 0) {
-          if (current.trim()) {
-            rows.push(current.trim());
+    while (i < cleanSpec.length) {
+      let char = cleanSpec[i];
+      if (char === '|') {
+        if (colStyles.length === 0) {
+          currentBorderLeft = true;
+        } else {
+          colStyles[colStyles.length - 1].borderRight = true;
+        }
+      } else if (char === 'c' || char === 'l' || char === 'r') {
+        colStyles.push({
+          align: char === 'c' ? 'center' : (char === 'r' ? 'right' : 'left'),
+          borderLeft: currentBorderLeft,
+          borderRight: false
+        });
+        currentBorderLeft = false;
+      } else if (char === 'p' || char === 'm' || char === 'b' || char === 'X') {
+        colStyles.push({ align: 'left', borderLeft: currentBorderLeft, borderRight: false });
+        currentBorderLeft = false;
+        let depth = 0;
+        i++;
+        if (cleanSpec[i] === '{') {
+          depth++; i++;
+          while (i < cleanSpec.length && depth > 0) {
+            if (cleanSpec[i] === '{') depth++;
+            if (cleanSpec[i] === '}') depth--;
+            i++;
           }
-          current = '';
-          i += 2;
-          continue;
+          i--;
         }
       }
-      if (str[i] === '{') braceDepth++;
-      else if (str[i] === '}') braceDepth--;
-      current += str[i];
       i++;
     }
-    if (current.trim()) {
-      rows.push(current.trim());
-    }
-    
-    if (rows.length === 0) {
-      return '<tr><td>No table data</td></tr>';
-    }
-    
+
+    // 2. Parse Rows
+    let rawRows = content.split(/\\\\/);
     let htmlRows = [];
     let isFirstRow = true;
-    
-    for (let row of rows) {
-      let cleanRow = row
-        .replace(/\\hline/g, '')
-        .replace(/\\midrule/g, '')
-        .replace(/\\toprule/g, '')
-        .replace(/\\bottomrule/g, '')
-        .replace(/\\addlinespace/g, '')
-        .replace(/\\arraybackslash/g, '')
-        .replace(/\\raggedright/g, '')
-        .replace(/\\centering/g, '')
-        .trim();
-      
-      if (!cleanRow) continue;
-      
-      const cells = [];
-      let cell = '';
-      let depth = 0;
-      let j = 0;
-      const rowStr = cleanRow;
-      
-      while (j < rowStr.length) {
-        if (rowStr[j] === '{') depth++;
-        else if (rowStr[j] === '}') depth--;
-        if (rowStr[j] === '&' && depth === 0) {
-          cells.push(cell.trim());
-          cell = '';
-          j++;
-          continue;
-        }
-        cell += rowStr[j];
-        j++;
+
+    for (let r = 0; r < rawRows.length; r++) {
+      let rowStr = rawRows[r].trim();
+      if (!rowStr && r === rawRows.length - 1) continue; // skip trailing empty
+
+      let borderTop = false;
+      let borderBottom = false;
+
+      if (rowStr.includes('\\hline') || rowStr.includes('\\toprule') || rowStr.includes('\\midrule')) {
+        borderTop = true;
+        rowStr = rowStr.replace(/\\hline/g, '').replace(/\\toprule/g, '').replace(/\\midrule/g, '');
       }
-      if (cell.trim() || cells.length > 0) {
-        cells.push(cell.trim());
+      if (rowStr.includes('\\bottomrule')) {
+        borderBottom = true;
+        rowStr = rowStr.replace(/\\bottomrule/g, '');
       }
-      
-      if (cells.length === 0) continue;
-      
-      const cleanedCells = cells.map(c => {
-        c = c.replace(/^>{\\bfseries\\raggedright\\arraybackslash}/, '');
-        c = c.replace(/^>{\\centering\\arraybackslash}/, '');
-        c = c.replace(/^@\{\}/, '');
-        c = c.replace(/@\{\}$/, '');
-        c = c.replace(/^p\{[^}]*\}/, '');
-        c = c.replace(/^X/, '');
-        c = c.replace(/\\textbf\{([^}]*)\}/g, '<strong>$1</strong>');
-        c = c.replace(/\\newline/g, '<br>');
-        c = c.replace(/\\([^a-zA-Z])/g, '$1');
-        return c;
+
+      // Propagate borders to previous rows if they exist alone on a line
+      if (!rowStr.trim() && htmlRows.length > 0 && borderTop) {
+         htmlRows[htmlRows.length - 1].borderBottom = true;
+         continue;
+      }
+      if (!rowStr.trim() && htmlRows.length > 0 && borderBottom) {
+         htmlRows[htmlRows.length - 1].borderBottom = true;
+         continue;
+      }
+      if (!rowStr.trim() && borderTop) continue; // Empty top row with border
+      if (!rowStr.trim()) continue;
+
+      const cells = rowStr.split('&').map(c => c.trim());
+
+      htmlRows.push({
+        cells,
+        borderTop,
+        borderBottom,
+        isHeader: isFirstRow
       });
-      
-      const tag = isFirstRow ? 'th' : 'td';
-      let rowHtml = '<tr>';
-      for (let cell of cleanedCells) {
-        rowHtml += `<${tag}>${cell}</${tag}>`;
-      }
-      rowHtml += '</tr>';
-      htmlRows.push(rowHtml);
       isFirstRow = false;
     }
-    
-    return htmlRows.join('\n');
+
+    // 3. Render HTML
+    let html = '';
+    for (let r = 0; r < htmlRows.length; r++) {
+      let rowData = htmlRows[r];
+      let trStyle = '';
+      if (rowData.borderTop) trStyle += 'border-top: 2px solid var(--text-color); ';
+      if (rowData.borderBottom) trStyle += 'border-bottom: 2px solid var(--text-color); ';
+
+      html += `<tr style="${trStyle}">`;
+      for (let c = 0; c < rowData.cells.length; c++) {
+        let cell = rowData.cells[c] || '';
+        let tag = rowData.isHeader ? 'th' : 'td';
+        let styleSpec = colStyles[c] || {};
+
+        let cStyle = '';
+        if (styleSpec.align) cStyle += `text-align: ${styleSpec.align}; `;
+        if (styleSpec.borderLeft) cStyle += `border-left: 1px solid var(--border-color); `;
+        if (styleSpec.borderRight) cStyle += `border-right: 1px solid var(--border-color); `;
+
+        cell = cell.replace(/\\textbf\{([^}]*)\}/g, '<strong>$1</strong>');
+        cell = cell.replace(/\\newline/g, '<br>');
+        cell = cell.replace(/\\([^a-zA-Z])/g, '$1');
+
+        html += `<${tag} style="${cStyle}">${cell}</${tag}>`;
+      }
+      html += `</tr>`;
+    }
+    return html;
   }
 
-  function processTableEnvironment(inner) {
+  function processTableEnvironment(inner, colSpec) {
     let caption = '';
     let content = inner;
     
@@ -191,18 +196,17 @@
     }
     
     let tableContent = '';
-    let tabMatch = content.match(/\\begin\{tabularx\}[^{]*(\{[^}]*\})?([\s\S]*?)\\end\{tabularx\}/);
+    let spec = colSpec;
+    let tabMatch = content.match(/\\begin\{tabularx\}[^{]*\{[^}]*\}\s*\{([^}]*)\}([\s\S]*?)\\end\{tabularx\}/);
+    
     if (tabMatch) {
-      tableContent = tabMatch[2] || tabMatch[1] || '';
+      spec = tabMatch[1];
+      tableContent = tabMatch[2];
     } else {
-      tabMatch = content.match(/\\begin\{tabular\}[^{]*(\{[^}]*\})?([\s\S]*?)\\end\{tabular\}/);
+      tabMatch = content.match(/\\begin\{tabular\}\s*\{([^}]*)\}([\s\S]*?)\\end\{tabular\}/);
       if (tabMatch) {
-        tableContent = tabMatch[2] || tabMatch[1] || '';
-      } else {
-        tabMatch = content.match(/\\begin\{tabular\}([\s\S]*?)\\end\{tabular\}/);
-        if (tabMatch) {
-          tableContent = tabMatch[1];
-        }
+        spec = tabMatch[1];
+        tableContent = tabMatch[2];
       }
     }
     
@@ -210,7 +214,7 @@
       return `<div class="table-wrap"><p>${content.trim()}</p></div>`;
     }
     
-    const rows = parseTableContent(tableContent);
+    const rows = parseTableContent(tableContent, spec);
     
     let tableHtml = '<table class="latex-table">';
     if (caption) {
@@ -239,25 +243,23 @@
     const tableRegex = /(?<!\\\\)\\begin\{table\*?\}([\s\S]*?)(?<!\\\\)\\end\{table\*?\}/g;
     html = html.replace(tableRegex, (match, inner) => {
       const token = `@@TABLE_${tableStash.length}@@`;
-      const wrapped = processTableEnvironment(inner);
+      const wrapped = processTableEnvironment(inner, '');
       tableStash.push({ token, content: wrapped });
       return `\n\n${token}\n\n`;
     });
 
-    const tabularxRegex = /(?<!\\\\)\\begin\{tabularx\}[^{]*(\{[^}]*\})?([\s\S]*?)(?<!\\\\)\\end\{tabularx\}/g;
+    const tabularxRegex = /(?<!\\\\)\\begin\{tabularx\}[^{]*\{[^}]*\}\s*\{([^}]*)\}([\s\S]*?)(?<!\\\\)\\end\{tabularx\}/g;
     html = html.replace(tabularxRegex, (match, colSpec, inner) => {
       const token = `@@TABLE_${tableStash.length}@@`;
-      const fullInner = inner || colSpec || '';
-      const wrapped = processTableEnvironment(`\\begin{tabularx}${fullInner}\\end{tabularx}`);
+      const wrapped = processTableEnvironment(`\\begin{tabularx}{\\linewidth}{${colSpec}}${inner}\\end{tabularx}`, colSpec);
       tableStash.push({ token, content: wrapped });
       return `\n\n${token}\n\n`;
     });
 
-    const tabularRegex = /(?<!\\\\)\\begin\{tabular\}[^{]*(\{[^}]*\})?([\s\S]*?)(?<!\\\\)\\end\{tabular\}/g;
+    const tabularRegex = /(?<!\\\\)\\begin\{tabular\}\s*\{([^}]*)\}([\s\S]*?)(?<!\\\\)\\end\{tabular\}/g;
     html = html.replace(tabularRegex, (match, colSpec, inner) => {
       const token = `@@TABLE_${tableStash.length}@@`;
-      const fullInner = inner || colSpec || '';
-      const wrapped = processTableEnvironment(`\\begin{tabular}${fullInner}\\end{tabular}`);
+      const wrapped = processTableEnvironment(`\\begin{tabular}{${colSpec}}${inner}\\end{tabular}`, colSpec);
       tableStash.push({ token, content: wrapped });
       return `\n\n${token}\n\n`;
     });
@@ -341,6 +343,20 @@
       });
     });
 
+    // Visa style Quotes and Code Blocks
+    html = html.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, (_, content) => {
+      return `\n\n<div class="material-box clean">\n<figure>\n<blockquote>${content.trim()}</blockquote>\n</figure>\n</div>\n\n`;
+    });
+
+    html = html.replace(/\\begin\{verbatim\}([\s\S]*?)\\end\{verbatim\}/g, (_, content) => {
+      return `\n\n<div class="material-box code-box">\n<div class="code-header">\n<span class="code-lang">text</span>\n<button class="copy-code-btn" aria-label="Copy code" title="Copy code">\n<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>\n</button>\n</div>\n<pre><code>${content}</code></pre>\n</div>\n\n`;
+    });
+
+    html = html.replace(/\\begin\{lstlisting\}(?:\[language=([^\]]+)\])?([\s\S]*?)\\end\{lstlisting\}/g, (_, lang, content) => {
+      const l = lang ? lang.trim() : 'text';
+      return `\n\n<div class="material-box code-box">\n<div class="code-header">\n<span class="code-lang">${l}</span>\n<button class="copy-code-btn" aria-label="Copy code" title="Copy code">\n<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>\n</button>\n</div>\n<pre><code class="language-${l}">${content}</code></pre>\n</div>\n\n`;
+    });
+
     let chapNum = 0, secNum = 0, subsecNum = 0, subsubsecNum = 0;
     html = html.replace(/\\(chapter|section|subsection|subsubsection)(\*?)\{([^}]+)\}/g, (match, level, star, titleContent) => {
       let numStr = "";
@@ -364,7 +380,7 @@
     html = html.replace(/\\textbf\{([^}]+)\}/g, '<strong>$1</strong>');
     html = html.replace(/\\textit\{([^}]+)\}/g, '<em>$1</em>');
     html = html.replace(/\\emph\{([^}]+)\}/g, '<em>$1</em>');
-    html = html.replace(/\\texttt\{([^}]+)\}/g, '<code>$1</code>');
+    html = html.replace(/\\texttt\{([^}]+)\}/g, '<code class="backtick">$1</code>');
     html = html.replace(/\\underline\{([^}]+)\}/g, '<u>$1</u>');
     html = html.replace(/\\url\{([^}]+)\}/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     html = html.replace(/\\href\{([^}]+)\}\{([^}]+)\}/g, '<a href="$1" target="_blank" rel="noopener">$2</a>');
@@ -380,14 +396,12 @@
     html = html.replace(/<li>\s*<\/li>/g, '');
     html = html.replace(/<(ul|ol)><li>/g, '<$1><li>');
 
-    html = html.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, '\n\n<blockquote>$1</blockquote>\n\n');
-
     html = html.replace(/\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}/g, '<img src="$1" alt="Kuva">');
     html = html.replace(/\\begin\{figure\}(?:\[[^\]]*\])?([\s\S]*?)\\end\{figure\}/g, '\n\n<div class="figure">$1</div>\n\n');
     html = html.replace(/\\caption\{([^}]+)\}/g, '<div class="caption"><em>$1</em></div>');
     html = html.replace(/\\centering/g, '');
 
-    // --- CITATION LOGIC (fixed with no comma between author and year) ---
+    // --- CITATION LOGIC (APA Style Authoryear) ---
     function getCitationAuthorsAndYear(key) {
       const entry = bibEntries.find(e => e.key === key);
       if (!entry) {
@@ -406,27 +420,21 @@
       const keyArray = keys.split(',').map(k => k.trim());
       
       if (type === 'paren') {
-        // Format: (Author Year) or (Author1 & Author2 Year) or (Author1 et al. Year)
-        // Multiple: (Author1 Year; Author2 Year)
         const inner = keyArray.map(key => {
           const { author, year } = getCitationAuthorsAndYear(key);
-          const text = year ? `${author} ${year}` : author;
+          const text = year ? `${author}, ${year}` : author;
           return `<a href="#bib-${key}" class="cite-link" data-cite="${key}">${text}</a>`;
         }).join('; ');
         return `(${inner})`;
-        
       } else if (type === 'text') {
-        // Author (Year) or Author1 & Author2 (Year)
         return keyArray.map(key => {
           const { author, year } = getCitationAuthorsAndYear(key);
           if (year) {
             return `${author} (<a href="#bib-${key}" class="cite-link" data-cite="${key}">${year}</a>)`;
           }
           return `<a href="#bib-${key}" class="cite-link" data-cite="${key}">${author}</a>`;
-        }).join(' ja ');
+        }).join(' and ');
       }
-      
-      // fallback
       return `[${keys}]`;
     }
 
