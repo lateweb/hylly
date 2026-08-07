@@ -45,23 +45,19 @@
       'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
   }
 
-  function extractMacro(src, macro) {
-    const regex = new RegExp('\\\\' + macro + '\\s*\\{');
-    const match = src.match(regex);
-    if (!match) return '';
-    let start = match.index + match[0].length;
-    let depth = 1, i = start;
-    while (i < src.length && depth > 0) {
-      if (src[i] === '\\') { i += 2; continue; }
-      if (src[i] === '{') depth++;
-      else if (src[i] === '}') depth--;
-      i++;
-    }
-    let clean = src.substring(start, i - 1).trim();
-    // Remove formatting inside the macro
-    clean = clean.replace(/\\[a-zA-Z]+\*?(?:\s*\[[^\]]*\])*(?:\s*\{[^{}]*\})*/g, '');
-    clean = clean.replace(/\\([^a-zA-Z0-9])/g, '$1');
-    return clean;
+  // Reliably fetch metadata from the final generated HTML string
+  function extractMetadataFromHtml(html) {
+    const stripTags = str => str.replace(/<[^>]+>/g, '').trim();
+    
+    const titleMatch = html.match(/<h1 class="article-title">([\s\S]*?)<\/h1>/i);
+    const authorMatch = html.match(/<div class="article-author">([\s\S]*?)<\/div>/i);
+    const dateMatch = html.match(/<div class="article-date">([\s\S]*?)<\/div>/i);
+    
+    return {
+      title: titleMatch ? stripTags(titleMatch[1]) : 'Untitled Document',
+      author: authorMatch ? stripTags(authorMatch[1]) : '',
+      date: dateMatch ? stripTags(dateMatch[1]) : ''
+    };
   }
 
   async function generateHtml() {
@@ -100,16 +96,14 @@
       const html = await generateHtml();
       if (!html) throw new Error('HTML generation failed');
 
-      let tempSrc = texInput.value.replace(/\\%/g, '___PCT___').replace(/%.*/g, '').replace(/___PCT___/g, '\\%');
-      const title = extractMacro(tempSrc, 'title') || 'Untitled Document';
-      const author = extractMacro(tempSrc, 'author');
-      const date = extractMacro(tempSrc, 'date');
+      // Extract metadata from the generated HTML payload directly
+      const meta = extractMetadataFromHtml(html);
       
       const book = {
         id: currentBookId || generateId(),
-        title: title,
-        author: author,
-        date: date,
+        title: meta.title,
+        author: meta.author,
+        date: meta.date,
         texSource: texInput.value,
         bibSource: bibInput.value,
         htmlContent: html,
