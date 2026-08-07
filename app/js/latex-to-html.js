@@ -48,16 +48,6 @@
     });
   }
 
-  function formatAuthors(authorStr) {
-    const authors = parseAuthors(authorStr);
-    if (authors.length === 0) return '';
-    const formatted = authors.map(a => a.first ? `${a.last}, ${a.first}` : a.last);
-    if (formatted.length === 1) return formatted[0];
-    const last = formatted.pop();
-    return formatted.join(', ') + ' & ' + last;
-  }
-
-  // Format authors for citations (with et al.)
   function formatCitationAuthors(authorStr) {
     const authors = parseAuthors(authorStr);
     if (authors.length === 0) return '';
@@ -70,9 +60,8 @@
     }
   }
 
-  // --- Robust table parser with borders ---
+  // --- Exact Table Parser ---
   function parseTableContent(content, colSpec) {
-    // 1. Process colSpec
     const colStyles = [];
     let currentBorderLeft = false;
     let cleanSpec = (colSpec || '').replace(/\s+/g, '');
@@ -111,14 +100,13 @@
       i++;
     }
 
-    // 2. Parse Rows
     let rawRows = content.split(/\\\\/);
     let htmlRows = [];
     let isFirstRow = true;
 
     for (let r = 0; r < rawRows.length; r++) {
       let rowStr = rawRows[r].trim();
-      if (!rowStr && r === rawRows.length - 1) continue; // skip trailing empty
+      if (!rowStr && r === rawRows.length - 1) continue; 
 
       let borderTop = false;
       let borderBottom = false;
@@ -132,7 +120,6 @@
         rowStr = rowStr.replace(/\\bottomrule/g, '');
       }
 
-      // Propagate borders to previous rows if they exist alone on a line
       if (!rowStr.trim() && htmlRows.length > 0 && borderTop) {
          htmlRows[htmlRows.length - 1].borderBottom = true;
          continue;
@@ -141,7 +128,10 @@
          htmlRows[htmlRows.length - 1].borderBottom = true;
          continue;
       }
-      if (!rowStr.trim() && borderTop) continue; // Empty top row with border
+      if (!rowStr.trim() && borderTop) {
+          // standalone line
+          continue; 
+      }
       if (!rowStr.trim()) continue;
 
       const cells = rowStr.split('&').map(c => c.trim());
@@ -155,13 +145,14 @@
       isFirstRow = false;
     }
 
-    // 3. Render HTML
     let html = '';
     for (let r = 0; r < htmlRows.length; r++) {
       let rowData = htmlRows[r];
       let trStyle = '';
-      if (rowData.borderTop) trStyle += 'border-top: 2px solid var(--text-color); ';
-      if (rowData.borderBottom) trStyle += 'border-bottom: 2px solid var(--text-color); ';
+      
+      // We rely on CSS variable --text-color defined globally in base.css
+      if (rowData.borderTop) trStyle += 'border-top: 1px solid var(--text-color); ';
+      if (rowData.borderBottom) trStyle += 'border-bottom: 1px solid var(--text-color); ';
 
       html += `<tr style="${trStyle}">`;
       for (let c = 0; c < rowData.cells.length; c++) {
@@ -171,8 +162,8 @@
 
         let cStyle = '';
         if (styleSpec.align) cStyle += `text-align: ${styleSpec.align}; `;
-        if (styleSpec.borderLeft) cStyle += `border-left: 1px solid var(--border-color); `;
-        if (styleSpec.borderRight) cStyle += `border-right: 1px solid var(--border-color); `;
+        if (styleSpec.borderLeft) cStyle += `border-left: 1px solid var(--text-color); `;
+        if (styleSpec.borderRight) cStyle += `border-right: 1px solid var(--text-color); `;
 
         cell = cell.replace(/\\textbf\{([^}]*)\}/g, '<strong>$1</strong>');
         cell = cell.replace(/\\newline/g, '<br>');
@@ -343,7 +334,6 @@
       });
     });
 
-    // Visa style Quotes and Code Blocks
     html = html.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, (_, content) => {
       return `\n\n<div class="material-box clean">\n<figure>\n<blockquote>${content.trim()}</blockquote>\n</figure>\n</div>\n\n`;
     });
