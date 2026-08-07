@@ -156,18 +156,6 @@ ${cssContent}
         </svg>
       </button>
 
-      <!-- Bookmark button -->
-      <button id="bookmark-btn" class="icon-btn" aria-label="Tallenna tai poista kirjanmerkki">
-        <!-- empty (outline) bookmark -->
-        <svg id="bookmark-empty" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <!-- filled (solid) bookmark -->
-        <svg id="bookmark-filled" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="display: none;">
-          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-        </svg>
-      </button>
-
       <!-- Theme toggle -->
       <button id="theme-toggle" class="theme-toggle-fixed" aria-label="Vaihda teemaa">
         <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="display: ${isDark ? 'none' : 'inline'};"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
