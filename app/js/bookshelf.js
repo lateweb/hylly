@@ -19,12 +19,11 @@
     if (!shelf) return;
 
     if (books.length === 0) {
-      shelf.innerHTML = '<div class="empty-shelf">Your shelf is empty. Click "+ Add Book" or "Upload HTML" to get started.</div>';
+      shelf.innerHTML = '<div class="empty-shelf">Your shelf is empty. Click "+ Upload HTML" to add a document.</div>';
       return;
     }
 
     shelf.innerHTML = books.map(book => {
-      // Exactly fetch the date string as it reads in the HTML, no fallbacks
       const dateStr = book.date || '';
       const authorHtml = book.author ? `<div class="entry-author"><strong>${escapeHtml(book.author)}</strong></div>` : '';
       
@@ -37,7 +36,6 @@
           ${authorHtml}
           <div class="entry-actions">
             <button class="btn btn-secondary btn-sm read-btn" data-id="${book.id}">Read</button>
-            <button class="btn btn-secondary btn-sm edit-btn" data-id="${book.id}">Edit</button>
             <button class="btn btn-secondary btn-sm delete-btn" data-id="${book.id}" style="color: #ef4444; border-color: var(--border-color); background: transparent;">Delete</button>
           </div>
         </div>
@@ -55,14 +53,6 @@
           const url = URL.createObjectURL(blob);
           window.open(url, '_blank');
         }
-      });
-    });
-
-    // Wire up Edit buttons
-    document.querySelectorAll('.edit-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.getAttribute('data-id');
-        window.location.href = `converter.html?id=${id}`;
       });
     });
 
@@ -108,7 +98,6 @@
     }
   }
 
-  // --- Upload Previously Downloaded HTML feature ---
   function setupUpload() {
     const uploadInput = document.getElementById('uploadHtmlInput');
     const uploadBtn = document.getElementById('uploadHtmlBtn');
@@ -144,7 +133,7 @@
           title: title,
           author: author,
           date: date,
-          texSource: '', // Blank because it's uploaded directly
+          texSource: '',
           bibSource: '',
           htmlContent: text,
           timestamp: Date.now()
